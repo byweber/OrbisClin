@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.database import get_db, STORAGE_DIR
-from app.core.models import ExamFile, ExamSession, Patient, User
+from app.core.models import ExamFile, ExamSession, ImageNote, Patient, User
 from app.core.security import SECRET_KEY, ALGORITHM, get_current_user, log_audit
 # import do worker movido para dentro do upload (lazy) — evita bloqueio se Redis estiver fora
 
@@ -313,7 +313,7 @@ async def search_exams(
             "files": [
                 {"id": f.id, "type": f.file_type, "name": f.filename,
                  "date": f.uploaded_at.strftime("%d/%m %H:%M"),
-                 "notes": f.notes or ""}
+                 "note_count": len(f.image_notes)}
                 for f in s.files
             ],
         }
@@ -379,24 +379,69 @@ async def update_session(
 
 # ── Anotações clínicas ───────────────────────────────────────────────────────
 
-@router.put("/api/files/{file_id}/notes")
-async def update_file_notes(
+@router.post("/api/files/{file_id}/notes")
+async def create_file_note(
     file_id: int,
-    notes: str = Form(""),
+    note_text: str = Form(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Salva ou atualiza anotação clínica de um arquivo de imagem."""
-    if current_user.role == "VIEWER":
-        raise HTTPException(403, detail={"message": "Acesso negado."})
+    """Cria anotação clínica imutável vinculada a um arquivo de imagem.
+    Apenas MEDICO e ADMIN podem criar anotações. Nunca editadas após criação."""
+    if current_user.role not in ("MEDICO", "ADMIN"):
+        raise HTTPException(403, detail={"message": "Apenas médicos e administradores podem criar anotações."})
+    text = note_text.strip()
+    if not text:
+        raise HTTPException(422, detail={"message": "Anotação não pode ser vazia."})
     f = db.query(ExamFile).filter(ExamFile.id == file_id).first()
     if not f:
         raise HTTPException(404, detail={"message": "Arquivo não encontrado."})
-    f.notes = notes.strip() or None
+    note = ImageNote(
+        file_id=file_id,
+        username=current_user.username,
+        full_name=current_user.full_name,
+        note_text=text,
+    )
+    db.add(note)
     db.commit()
-    log_audit(db, current_user.username, "FILE_NOTES", f.filename,
-              f"ID:{file_id} — {len(notes)} chars")
-    return JSONResponse({"status": "success", "notes": f.notes or ""})
+    db.refresh(note)
+    log_audit(db, current_user.username, "IMAGE_NOTE", f.filename,
+              f"ID:{file_id} — {len(text)} chars")
+    return JSONResponse({
+        "status": "success",
+        "note": {
+            "id": note.id,
+            "username": note.username,
+            "full_name": note.full_name,
+            "note_text": note.note_text,
+            "created_at": note.created_at.strftime("%d/%m/%Y %H:%M"),
+        }
+    })
+
+
+@router.get("/api/files/{file_id}/notes")
+async def get_file_notes(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna todas as anotações de um arquivo, ordenadas por data."""
+    notes = (
+        db.query(ImageNote)
+        .filter(ImageNote.file_id == file_id)
+        .order_by(ImageNote.created_at.asc())
+        .all()
+    )
+    return [
+        {
+            "id": n.id,
+            "username": n.username,
+            "full_name": n.full_name,
+            "note_text": n.note_text,
+            "created_at": n.created_at.strftime("%d/%m/%Y %H:%M"),
+        }
+        for n in notes
+    ]
 
 
 @router.delete("/api/files/{file_id}")

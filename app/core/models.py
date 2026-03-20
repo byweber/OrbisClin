@@ -4,9 +4,8 @@ app/core/models.py — Modelos SQLAlchemy.
 Histórico de alterações:
   v1 — Tabelas renomeadas: 'sessions' → 'exam_sessions', 'files' → 'exam_files'
   v2 — Campo extracted_text em ExamFile (worker Celery)
-  v3 — Campo notes em ExamFile (anotações clínicas por imagem)
-       → Migration: alembic revision --autogenerate -m "add_notes_to_exam_files"
-       → Aplicar:   alembic upgrade head
+  v3 — Tabela image_notes criada (anotações clínicas imutáveis por imagem)
+       → Aplicar: python reset_system.py  (dev)  ou  alembic upgrade head  (prod)
 """
 from datetime import datetime
 
@@ -64,15 +63,31 @@ class ExamFile(Base):
     file_type = Column(String)
     file_path = Column(String)
     filename = Column(String)
-    extracted_text = Column(Text, nullable=True)  # preenchido pelo worker Celery
-    notes = Column(Text, nullable=True)            # anotações clínicas por imagem (v3)
+    extracted_text = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.now, index=True)
 
     session = relationship("ExamSession", back_populates="files")
+    image_notes = relationship("ImageNote", back_populates="file", lazy="select",
+                               order_by="ImageNote.created_at")
 
     __table_args__ = (
         Index("ix_examfile_session_type", "session_id", "file_type"),
     )
+
+
+class ImageNote(Base):
+    """Anotações clínicas imutáveis vinculadas a um arquivo de imagem.
+    Nunca atualizadas após criação — apenas INSERT e SELECT."""
+    __tablename__ = "image_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(Integer, ForeignKey("exam_files.id"), index=True, nullable=False)
+    username = Column(String, nullable=False, index=True)
+    full_name = Column(String, nullable=False)
+    note_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+
+    file = relationship("ExamFile", back_populates="image_notes")
 
 
 class AuditLog(Base):
