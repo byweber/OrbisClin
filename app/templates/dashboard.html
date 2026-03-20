@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Nexus - Dashboard{% endblock %}
+{% block subtitle %}Visão Geral do Sistema{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-md transition">
+            <div>
+                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Sessões de Exame</h3>
+                <p class="text-4xl font-bold text-joinville mt-2" id="totalSessions">...</p>
+            </div>
+            <div class="mt-4 text-xs text-gray-400 flex items-center gap-1">
+                <span class="text-green-500 font-bold">●</span> Total Registrado
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-md transition">
+            <div>
+                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Arquivos (PDFs)</h3>
+                <p class="text-4xl font-bold text-blue-600 mt-2" id="totalFiles">...</p>
+            </div>
+            <div class="mt-4 text-xs text-gray-400 flex items-center gap-1">
+                <span class="text-blue-500 font-bold">●</span> Armazenados em Disco
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-md transition">
+            <div>
+                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Uploads Hoje</h3>
+                <p class="text-4xl font-bold text-green-600 mt-2" id="uploadsToday">...</p>
+            </div>
+            <div class="mt-4 text-xs text-gray-400 flex items-center gap-1">
+                <span class="text-green-500 font-bold">↑</span> Atividade Recente
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <h3 class="text-gray-700 font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-joinville" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                Fluxo de Uploads (7 Dias)
+            </h3>
+            <div class="relative h-64 w-full">
+                <canvas id="chartHistory"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <h3 class="text-gray-700 font-bold mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-joinville" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                Distribuição por Tipo
+            </h3>
+            <div class="relative h-64 w-full flex justify-center">
+                <canvas id="chartTypes"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-r from-joinville to-blue-800 rounded-2xl shadow-lg p-6 text-white flex justify-between items-center">
+        <div>
+            <h3 class="text-xl font-bold">Precisa de dados detalhados?</h3>
+            <p class="text-blue-200 text-sm mt-1">Acesse a área de relatórios para exportar planilhas e auditoria.</p>
+        </div>
+        <a href="/reports" class="bg-white text-joinville px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition shadow-lg">
+            Ir para Relatórios
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    let chartInstanceHistory = null;
+    let chartInstanceTypes = null;
+
+    async function loadStats(){
+        try {
+            const r = await authFetch('/api/stats');
+            
+            if (!r.ok) {
+                if (r.status === 403) {
+                    showToast('Acesso negado às estatísticas.', 'error');
+                }
+                return;
+            }
+
+            const d = await r.json();
+
+            // Atualiza Contadores com animação simples
+            animateValue("totalSessions", 0, d.total_exams || 0, 1000);
+            animateValue("totalFiles", 0, d.total_files || 0, 1000);
+            animateValue("uploadsToday", 0, d.uploads_today || 0, 1000);
+
+            // Renderiza Gráficos
+            renderHistoryChart(d.history);
+            renderTypesChart(d.types);
+
+        } catch(e) {
+            console.error("Erro ao carregar dashboard:", e);
+            if(typeof showToast === 'function') showToast('Erro de conexão com dashboard.', 'error');
+        }
+    }
+
+    function renderHistoryChart(data) {
+        const ctx = document.getElementById('chartHistory');
+        if(!ctx) return;
+
+        // Destrói anterior se existir
+        if(chartInstanceHistory) chartInstanceHistory.destroy();
+
+        chartInstanceHistory = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(i => i.date),
+                datasets: [{
+                    label: 'Arquivos Enviados',
+                    data: data.map(i => i.count),
+                    borderColor: '#002d72',
+                    backgroundColor: 'rgba(0, 45, 114, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#002d72',
+                    pointRadius: 5,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    function renderTypesChart(data) {
+        const ctx = document.getElementById('chartTypes');
+        if(!ctx) return;
+
+        if(chartInstanceTypes) chartInstanceTypes.destroy();
+
+        // Cores personalizadas
+        const colors = ['#002d72', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280'];
+
+        chartInstanceTypes = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.map(i => i.label),
+                datasets: [{
+                    data: data.map(i => i.value),
+                    backgroundColor: colors.slice(0, data.length),
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 15 } }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // Função auxiliar para animar números
+    function animateValue(id, start, end, duration) {
+        const obj = document.getElementById(id);
+        if(!obj) return;
+        if (start === end) { obj.innerHTML = end; return; }
+        let range = end - start;
+        let current = start;
+        let increment = end > start ? 1 : -1;
+        let stepTime = Math.abs(Math.floor(duration / range));
+        if (stepTime < 10) stepTime = 10; // Limite velocidade
+        let timer = setInterval(function() {
+            current += increment;
+            obj.innerHTML = current;
+            if (current == end) { clearInterval(timer); }
+        }, stepTime);
+    }
+
+    // Inicia se tiver token
+    if(localStorage.getItem('nexus_token')) {
+        loadStats();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OrbisClin{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: {
+                colors: { orbis: '#0E2F66', orbislight: '#1A4FA0' },
+                animation: {
+                    'fade-in-down': 'fadeInDown 0.3s ease-out',
+                    'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.16,1,0.3,1)'
+                },
+                keyframes: {
+                    fadeInDown: { '0%':{opacity:'0',transform:'translateY(-10px)'},'100%':{opacity:'1',transform:'translateY(0)'} },
+                    slideInRight: { '0%':{transform:'translateX(100%)',opacity:'0'},'100%':{transform:'translateX(0)',opacity:'1'} }
+                }
+            }}
+        }
+    </script>
+    <style>
+        body{background-color:#f3f4f6;}
+        ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#f1f1f1}::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:4px}
+        .lbl{display:block;font-size:.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:.25rem}
+        .inp{width:100%;padding:.5rem;border:1px solid #d1d5db;border-radius:.375rem;outline:none;font-size:.875rem}
+        .spinner{border:3px solid rgba(0,0,0,.1);border-left-color:#1A4FA0;border-radius:50%;width:24px;height:24px;animation:spin 1s linear infinite}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-gray-800 overflow-hidden" id="appBody">
+
+<div id="toast-container" class="fixed top-20 right-5 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+
+<!-- Header -->
+<header class="bg-orbis shadow-lg z-30 h-16 flex-none">
+    <div class="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
+        <!-- Logo inline -->
+        <div class="flex items-center cursor-pointer" onclick="window.location.href='/'">
+            <svg width="170" height="48" viewBox="0 0 170 48" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="24" cy="24" rx="21" ry="21" fill="none" stroke="white" stroke-width="0.8" opacity="0.25"/>
+                <ellipse cx="24" cy="24" rx="15" ry="15" fill="none" stroke="white" stroke-width="0.8" opacity="0.38"/>
+                <circle cx="24" cy="24" r="10" fill="white" opacity="0.95"/>
+                <rect x="19" y="21.5" width="10" height="5" rx="1.5" fill="#1A4FA0"/>
+                <rect x="21.5" y="19" width="5" height="10" rx="1.5" fill="#1A4FA0"/>
+                <circle cx="24" cy="3"  r="2.2" fill="white" opacity="0.65"/>
+                <circle cx="45" cy="24" r="1.8" fill="white" opacity="0.42"/>
+                <circle cx="9"  cy="39" r="1.6" fill="white" opacity="0.32"/>
+                <text x="54" y="19" font-family="Georgia,'Times New Roman',serif" font-size="14" font-weight="700" fill="white" letter-spacing="-0.2">Orbis</text>
+                <text x="54" y="34" font-family="Georgia,'Times New Roman',serif" font-size="14" font-weight="400" fill="white" opacity="0.85" letter-spacing="-0.2">Clin</text>
+                <line x1="54" y1="38" x2="118" y2="38" stroke="white" stroke-width="0.5" opacity="0.2"/>
+                <text x="54" y="44" font-family="'Helvetica Neue',Arial,sans-serif" font-size="5.5" fill="white" opacity="0.5" letter-spacing="1.5">GESTÃO DE IMAGENS CLÍNICAS</text>
+            </svg>
+            <div class="border-l border-white/20 pl-4 ml-2 h-8 flex items-center">
+                <p class="text-blue-200 text-[10px] font-medium tracking-[0.2em] uppercase">{% block subtitle %}{% endblock %}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4" id="headerActions"></div>
+    </div>
+</header>
+
+<main class="flex-1 overflow-y-auto p-6 bg-gray-50 relative">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="bg-white border-t border-gray-200 py-2 flex-none z-20">
+    <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+        <p class="text-[10px] text-gray-400 uppercase tracking-wide">&copy; 2025 OrbisClin</p>
+        <p class="text-[10px] font-mono text-gray-400 font-bold bg-gray-100 px-2 py-0.5 rounded">v{{ request.state.app_version }}</p>
+    </div>
+</footer>
+
+<!-- Modal: Alterar minha senha -->
+<div id="myPasswordModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div class="bg-orbis p-4 flex justify-between items-center">
+            <h3 class="text-white font-bold text-lg">Alterar Senha</h3>
+            <button onclick="closeBaseModal('myPasswordModal')" class="text-white/80 hover:text-white">✖</button>
+        </div>
+        <form onsubmit="changeMyPasswordBase(event)" class="p-6 space-y-4">
+            <div><label class="lbl">Senha Atual</label><input type="password" id="baseCurrentPass" required class="inp" autocomplete="current-password"></div>
+            <div><label class="lbl">Nova Senha</label><input type="password" id="baseNewPass" required class="inp" placeholder="Mín. 8 chars, letras e números" autocomplete="new-password"></div>
+            <button type="submit" class="w-full py-3 bg-orbis hover:bg-orbislight text-white font-bold rounded shadow">CONFIRMAR</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const user = localStorage.getItem('orbisclin_user') || '';
+    const role = localStorage.getItem('orbisclin_role') || '';
+
+    function showToast(message, type='success') {
+        const container = document.getElementById('toast-container');
+        const t = document.createElement('div');
+        const colors = {success:'border-green-500',error:'border-red-500',info:'border-blue-500'};
+        const icons = {
+            success:'<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            error:  '<svg class="w-5 h-5 text-red-500"   fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            info:   '<svg class="w-5 h-5 text-blue-500"  fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+        };
+        t.className = `pointer-events-auto flex items-center gap-3 min-w-[300px] max-w-md p-4 rounded-xl shadow-2xl border-l-4 ${colors[type]||colors.info} bg-white animate-slide-in-right transition-all duration-300`;
+        t.innerHTML = `<div class="flex-shrink-0">${icons[type]||icons.info}</div><div class="flex-1 text-sm font-bold text-gray-800">${message}</div><button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-gray-600">✖</button>`;
+        container.appendChild(t);
+        setTimeout(()=>{ t.classList.add('opacity-0','translate-x-full'); setTimeout(()=>t.remove(),300); }, 4500);
+    }
+
+    function renderGlobalMenu() {
+        const area = document.getElementById('headerActions');
+        const cur  = window.location.pathname;
+        const lnk  = 'text-white/70 hover:text-white font-bold text-xs transition uppercase tracking-wide';
+        const act  = 'text-white font-bold text-xs transition uppercase tracking-wide border-b-2 border-white pb-0.5';
+        let html = '';
+        if (role === 'ADMIN') {
+            html += `<a href="/dashboard" class="${cur==='/dashboard'?act:lnk}">Dashboard</a>`;
+            html += `<a href="/reports"   class="ml-4 ${cur==='/reports'?act:lnk}">Relatórios</a>`;
+            html += `<a href="/admin"     class="ml-4 ${cur==='/admin'?act:lnk}">Ferramentas</a>`;
+            html += `<div class="h-4 w-px bg-white/20 mx-4"></div>`;
+        }
+        if (role !== 'VIEWER') {
+            if (typeof openUploadModal === 'function') {
+                html += `<button onclick="openUploadModal()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-1.5 px-4 rounded-lg transition text-xs mr-2">+ NOVO EXAME</button>`;
+            } else {
+                html += `<a href="/" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-1.5 px-4 rounded-lg transition text-xs mr-2">BUSCAR EXAMES</a>`;
+            }
+        }
+        html += `
+            <div class="flex items-center gap-3 pl-2">
+                <div class="text-right hidden md:block">
+                    <p class="text-white text-xs font-bold leading-tight">${user}</p>
+                    <p class="text-blue-300 text-[9px] font-bold uppercase tracking-wider">${role}</p>
+                </div>
+                <button onclick="document.getElementById('myPasswordModal').classList.remove('hidden')" class="text-white/60 hover:text-yellow-300 transition" title="Alterar Senha">🔑</button>
+                <button onclick="doLogout()" class="text-white/60 hover:text-red-300 transition" title="Sair">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </button>
+            </div>`;
+        area.innerHTML = html;
+    }
+
+    async function doLogout() {
+        await fetch('/api/auth/logout', { method:'POST', credentials:'same-origin' });
+        localStorage.clear();
+        window.location.href = '/login';
+    }
+
+    function closeBaseModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    async function authFetch(url, options={}) {
+        options.credentials = 'same-origin';
+        const r = await fetch(url, options);
+        if (r.status === 401) { await doLogout(); }
+        return r;
+    }
+
+    async function changeMyPasswordBase(e) {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('current_password', document.getElementById('baseCurrentPass').value);
+        fd.append('new_password',     document.getElementById('baseNewPass').value);
+        try {
+            const r = await authFetch('/api/users/me/password', { method:'POST', body:fd });
+            const d = await r.json();
+            if (r.ok) {
+                showToast('Senha alterada! Faça login novamente.', 'success');
+                setTimeout(doLogout, 2000);
+            } else {
+                showToast('Erro: '+(d.detail?.message||d.detail||'Falha.'), 'error');
+            }
+        } catch(e) { showToast('Erro de conexão.', 'error'); }
+    }
+
+    (async () => {
+        try {
+            const r = await fetch('/api/stats', { credentials:'same-origin' });
+            if (r.status === 401) { window.location.href = '/login'; return; }
+        } catch(e) {}
+        renderGlobalMenu();
+    })();
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}OrbisClin — Timeline Evolutiva{% endblock %}
+{% block subtitle %}Timeline de Imagens{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Cabeçalho do paciente -->
+    <div id="patientHeader" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hidden">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-orbis/10 flex items-center justify-center text-orbislight font-bold text-xl" id="patientInitial">
+                ?
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-800" id="patientName">—</h2>
+                <p class="text-xs text-gray-400 font-mono" id="patientId">—</p>
+            </div>
+            <div class="ml-auto">
+                <span id="sessionCount" class="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-full text-xs font-bold"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado: carregando -->
+    <div id="stateLoading" class="flex flex-col items-center justify-center py-20 gap-3">
+        <div class="spinner w-8 h-8"></div>
+        <p class="text-sm text-gray-400">Carregando timeline...</p>
+    </div>
+
+    <!-- Estado: erro / sem paciente -->
+    <div id="stateError" class="hidden flex-col items-center justify-center py-20 gap-3 text-center">
+        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-gray-400 font-bold" id="stateErrorMsg">Paciente não encontrado.</p>
+        <a href="/" class="text-sm text-orbislight hover:underline font-bold">← Voltar para busca</a>
+    </div>
+
+    <!-- Estado: sem imagens -->
+    <div id="stateEmpty" class="hidden flex-col items-center justify-center py-20 gap-3 text-center">
+        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="text-gray-400 font-bold">Nenhuma imagem registrada para este paciente.</p>
+        <p class="text-gray-300 text-xs">Apenas sessões de Dermatologia e Avaliação de Feridas aparecem na timeline.</p>
+        <a href="/" class="text-sm text-orbislight hover:underline font-bold">← Voltar para busca</a>
+    </div>
+
+    <!-- Timeline -->
+    <div id="timelineContainer" class="hidden relative">
+        <!-- Linha vertical -->
+        <div class="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-orbis via-blue-300 to-transparent"></div>
+
+        <div id="timelineItems" class="space-y-6 pl-16"></div>
+    </div>
+</div>
+
+<!-- Modal: Visualização de imagem ampliada -->
+<div id="imgModal" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4" onclick="closeImgModal()">
+    <button class="absolute top-4 right-4 text-white/60 hover:text-white text-2xl font-light" onclick="closeImgModal()">✖</button>
+    <img id="imgModalSrc" src="" alt="" class="max-h-[90vh] max-w-[90vw] rounded-xl shadow-2xl object-contain" onclick="event.stopPropagation()">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const patientId = new URLSearchParams(window.location.search).get('patient_id');
+
+    function setState(state, msg = '') {
+        ['stateLoading', 'stateError', 'stateEmpty', 'timelineContainer', 'patientHeader'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        // Estados com flex precisam de flex, não só remover hidden
+        if (state === 'error') {
+            const el = document.getElementById('stateError');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            document.getElementById('stateErrorMsg').innerText = msg || 'Erro ao carregar.';
+        } else if (state === 'empty') {
+            const el = document.getElementById('stateEmpty');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        } else if (state === 'loaded') {
+            document.getElementById('patientHeader').classList.remove('hidden');
+            document.getElementById('timelineContainer').classList.remove('hidden');
+        } else if (state === 'loading') {
+            document.getElementById('stateLoading').classList.remove('hidden');
+        }
+    }
+
+    async function loadTimeline() {
+        if (!patientId) {
+            setState('error', 'Nenhum paciente informado na URL. Use ?patient_id=...');
+            return;
+        }
+
+        setState('loading');
+
+        try {
+            const r = await authFetch(`/api/timeline/${encodeURIComponent(patientId)}`);
+
+            if (r.status === 404) {
+                setState('error', 'Paciente não encontrado.');
+                return;
+            }
+            if (!r.ok) {
+                setState('error', 'Erro ao carregar timeline.');
+                return;
+            }
+
+            const data = await r.json();
+
+            // Cabeçalho
+            const name = data.patient_name || '-';
+            document.getElementById('patientName').innerText   = name;
+            document.getElementById('patientId').innerText     = data.patient_id;
+            document.getElementById('patientInitial').innerText = name.charAt(0).toUpperCase();
+            document.getElementById('sessionCount').innerText  = `${data.timeline.length} sessão(ões)`;
+
+            if (data.timeline.length === 0) {
+                setState('empty');
+                return;
+            }
+
+            setState('loaded');
+            renderTimeline(data.timeline);
+
+        } catch (e) {
+            console.error(e);
+            setState('error', 'Erro de conexão.');
+        }
+    }
+
+    function renderTimeline(items) {
+        const container = document.getElementById('timelineItems');
+        container.innerHTML = '';
+
+        items.forEach((session, idx) => {
+            const isLast = idx === items.length - 1;
+            const procedureBadge = session.procedure === 'DERMATOLOGIA'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-orange-50 text-orange-700 border-orange-200';
+
+            const imagesHtml = session.images.map(img => `
+                <button
+                    onclick="openImgModal('/view/${img.file_id}?token=${token}')"
+                    class="group relative rounded-xl overflow-hidden border-2 border-white shadow-md hover:shadow-xl hover:scale-105 transition-all duration-200 bg-gray-100"
+                    style="width:140px;height:140px;flex:0 0 auto;"
+                    title="${img.filename || 'Imagem'}"
+                >
+                    <img
+                        src="/view/${img.file_id}?token=${token}"
+                        alt="${img.filename || 'Imagem'}"
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                        onerror="this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-3xl bg-gray-100\'>🖼️</div>'"
+                    >
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                        </svg>
+                    </div>
+                </button>
+            `).join('');
+
+            container.innerHTML += `
+                <div class="relative animate-fade-in-down" style="animation-delay:${idx * 60}ms">
+                    <!-- Ponto na linha do tempo -->
+                    <div class="absolute -left-[2.85rem] top-4 w-4 h-4 rounded-full border-2 border-orbislight bg-white shadow"></div>
+
+                    <!-- Card da sessão -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
+                        <div class="px-5 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-3">
+                            <span class="text-sm font-bold text-gray-700 font-mono">${session.exam_date_fmt || '—'}</span>
+                            <span class="border px-2 py-0.5 rounded text-[10px] font-bold ${procedureBadge}">${session.procedure}</span>
+                            <span class="text-xs text-gray-400 font-mono ml-auto"># ${session.accession_number}</span>
+                        </div>
+                        <div class="p-4 flex gap-3 overflow-x-auto">
+                            ${imagesHtml}
+                        </div>
+                        <div class="px-5 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+                            ${session.images.length} imagem(ns)
+                        </div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    function openImgModal(src) {
+        document.getElementById('imgModalSrc').src = src;
+        document.getElementById('imgModal').classList.remove('hidden');
+    }
+    function closeImgModal() {
+        document.getElementById('imgModal').classList.add('hidden');
+        document.getElementById('imgModalSrc').src = '';
+    }
+
+    // Fecha com Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeImgModal();
+    });
+
+    loadTimeline();
+</script>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}OrbisClin — Busca de Exames{% endblock %}
+{% block subtitle %}Repositório Clínico{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-4">
+
+    <!-- Barra de busca -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+        <div class="flex flex-col md:flex-row gap-3">
+            <div class="flex-1 relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                </svg>
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Buscar por paciente, ID, acesso ou texto extraído do PDF..."
+                    class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orbislight focus:border-orbislight transition"
+                    oninput="debounceSearch()"
+                >
+            </div>
+            <select id="filterType" onchange="runSearch()" class="py-2.5 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orbislight min-w-[200px]">
+                <option value="">TODOS OS TIPOS</option>
+                <option value="AUDIOMETRIA">AUDIOMETRIA</option>
+                <option value="ECG">ECG</option>
+                <option value="EEG">EEG</option>
+                <option value="HOLTER">HOLTER</option>
+                <option value="DERMATOLOGIA">DERMATOLOGIA</option>
+                <option value="AVALIAÇÃO DE FERIDAS">AVALIAÇÃO DE FERIDAS</option>
+                <option value="IMAGEM (PACS)">IMAGEM (PACS)</option>
+            </select>
+            <button onclick="runSearch()" class="bg-orbis hover:bg-orbislight text-white font-bold py-2.5 px-6 rounded-lg transition shadow text-sm">
+                BUSCAR
+            </button>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-600 text-sm flex items-center gap-2">
+                <svg class="w-4 h-4 text-orbislight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Exames
+            </h3>
+            <span id="resultCount" class="text-xs font-mono text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-100 text-gray-500 font-bold uppercase text-xs border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-3">Paciente</th>
+                        <th class="px-6 py-3">ID</th>
+                        <th class="px-6 py-3">Acesso</th>
+                        <th class="px-6 py-3">Data</th>
+                        <th class="px-6 py-3">Procedimento</th>
+                        <th class="px-6 py-3 text-center">Arquivos</th>
+                        <th class="px-6 py-3 text-right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody" class="divide-y divide-gray-100">
+                    <tr>
+                        <td colspan="7" class="px-6 py-16 text-center text-gray-400 text-sm">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                                </svg>
+                                Digite para buscar exames
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Visualizar Arquivos -->
+<div id="filesModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center flex-none">
+            <h3 class="font-bold text-gray-800" id="filesModalTitle">Arquivos do Exame</h3>
+            <button onclick="document.getElementById('filesModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500 transition">✖</button>
+        </div>
+        <div id="filesModalBody" class="p-4 overflow-y-auto flex-1 grid grid-cols-2 gap-3"></div>
+    </div>
+</div>
+
+<!-- Modal: Novo Exame -->
+<div id="uploadModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-down">
+        <div class="bg-orbis p-4 flex justify-between items-center">
+            <h3 class="text-white font-bold text-lg">Novo Exame</h3>
+            <button onclick="closeUploadModal()" class="text-white/80 hover:text-white transition">✖</button>
+        </div>
+        <form id="uploadForm" onsubmit="handleUpload(event)" class="p-6 space-y-4">
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="lbl">Tipo de Procedimento</label>
+                    <select id="upProcedure" required class="inp" onchange="onProcedureChange()">
+                        <option value="" disabled selected>Selecione...</option>
+                        <option value="AUDIOMETRIA">AUDIOMETRIA</option>
+                        <option value="ECG">ECG</option>
+                        <option value="EEG">EEG</option>
+                        <option value="HOLTER">HOLTER</option>
+                        <option value="DERMATOLOGIA">DERMATOLOGIA</option>
+                        <option value="AVALIAÇÃO DE FERIDAS">AVALIAÇÃO DE FERIDAS</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="lbl">Número de Acesso</label>
+                    <input type="text" id="upAccession" required class="inp" placeholder="Ex: 20250001">
+                </div>
+                <div>
+                    <label class="lbl">Data do Exame</label>
+                    <input type="date" id="upDate" class="inp" max="">
+                </div>
+                <div>
+                    <label class="lbl">ID do Paciente</label>
+                    <input type="text" id="upPatientId" required class="inp" placeholder="CPF ou prontuário">
+                </div>
+                <div>
+                    <label class="lbl">Nome do Paciente</label>
+                    <input type="text" id="upPatientName" required class="inp uppercase" placeholder="Nome completo">
+                </div>
+            </div>
+
+            <div>
+                <label class="lbl" id="upFileLabel">Arquivo (PDF)</label>
+                <input type="file" id="upFile" required class="inp py-1.5" accept=".pdf">
+                <p id="upFileHint" class="text-xs text-gray-400 mt-1">Apenas PDF para este tipo de procedimento.</p>
+            </div>
+
+            <div id="uploadProgress" class="hidden">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="uploadBar" class="bg-orbis h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+                </div>
+                <p id="uploadStatus" class="text-xs text-gray-500 mt-1 text-center">Enviando...</p>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeUploadModal()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                    CANCELAR
+                </button>
+                <button type="submit" id="upBtn" class="flex-1 py-2.5 bg-orbis hover:bg-orbislight text-white rounded-lg text-sm font-bold shadow transition">
+                    ENVIAR EXAME
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Bloqueia datas futuras no modal de upload
+    document.getElementById('upDate').max = new Date().toISOString().split('T')[0];
+
+    // ── Debounce de busca ─────────────────────────────────────────
+    let _searchTimer = null;
+    function debounceSearch() {
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(runSearch, 350);
+    }
+
+    async function runSearch() {
+        const q    = document.getElementById('searchInput').value.trim();
+        const type = document.getElementById('filterType').value;
+        const body = document.getElementById('resultsBody');
+        const count = document.getElementById('resultCount');
+
+        body.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-gray-400 text-sm">
+            <div class="flex justify-center"><div class="spinner"></div></div>
+        </td></tr>`;
+
+        try {
+            const params = new URLSearchParams({ q, type });
+            const r = await authFetch(`/api/search?${params}`);
+            if (!r.ok) { showToast('Erro ao buscar exames.', 'error'); return; }
+
+            const { data } = await r.json();
+            count.innerText = `${data.length} resultado(s)`;
+            body.innerHTML = '';
+
+            if (data.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">
+                    Nenhum exame encontrado.
+                </td></tr>`;
+                return;
+            }
+
+            data.forEach(s => {
+                const badge = s.is_pacs
+                    ? `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200">PACS</span>`
+                    : `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-100">${s.procedure || '-'}</span>`;
+
+                const filesBtn = s.files && s.files.length > 0
+                    ? `<button onclick='openFilesModal(${JSON.stringify(s)})' class="text-orbislight hover:underline font-bold text-xs">${s.files.length} arquivo(s)</button>`
+                    : `<span class="text-gray-300 text-xs">—</span>`;
+
+                const timelineBtn = ['DERMATOLOGIA', 'AVALIAÇÃO DE FERIDAS'].includes(s.procedure)
+                    ? `<a href="/timeline?patient_id=${s.patient_id}" class="text-green-600 font-bold text-xs hover:underline ml-2">Timeline</a>`
+                    : '';
+
+                body.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-3 font-bold text-gray-800 max-w-[180px] truncate" title="${s.patient_name}">${s.patient_name}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-500">${s.patient_id}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-600">${s.accession_number || '-'}</td>
+                        <td class="px-6 py-3 text-xs text-gray-500">${s.exam_date || '-'}</td>
+                        <td class="px-6 py-3">${badge}</td>
+                        <td class="px-6 py-3 text-center">${filesBtn}</td>
+                        <td class="px-6 py-3 text-right">${timelineBtn}</td>
+                    </tr>`;
+            });
+        } catch (e) {
+            console.error(e);
+            showToast('Erro de conexão.', 'error');
+        }
+    }
+
+    // ── Modal de arquivos ─────────────────────────────────────────
+    function openFilesModal(session) {
+        document.getElementById('filesModalTitle').innerText = `Arquivos — ${session.patient_name}`;
+        const body = document.getElementById('filesModalBody');
+        body.innerHTML = '';
+
+        session.files.forEach(f => {
+            const isPdf = f.type !== 'IMAGEM';
+            body.innerHTML += `
+                <a href="/view/${f.id}?token=${token}" target="_blank"
+                   class="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer group">
+                    <div class="text-4xl">${isPdf ? '📄' : '🖼️'}</div>
+                    <span class="text-xs font-bold text-gray-600 group-hover:text-orbislight text-center">${f.type}</span>
+                    <span class="text-[10px] text-gray-400">ID: ${f.id}</span>
+                </a>`;
+        });
+
+        document.getElementById('filesModal').classList.remove('hidden');
+    }
+
+    // ── Modal de upload ───────────────────────────────────────────
+    function openUploadModal() {
+        document.getElementById('uploadForm').reset();
+        document.getElementById('uploadProgress').classList.add('hidden');
+        document.getElementById('upDate').max = new Date().toISOString().split('T')[0];
+        document.getElementById('uploadModal').classList.remove('hidden');
+    }
+    function closeUploadModal() {
+        document.getElementById('uploadModal').classList.add('hidden');
+    }
+
+    function onProcedureChange() {
+        const proc = document.getElementById('upProcedure').value;
+        const multiFile = ['DERMATOLOGIA', 'AVALIAÇÃO DE FERIDAS'].includes(proc);
+        const input = document.getElementById('upFile');
+        const hint  = document.getElementById('upFileHint');
+        const label = document.getElementById('upFileLabel');
+
+        if (multiFile) {
+            input.accept = '.pdf,image/jpeg,image/png';
+            input.multiple = true;
+            label.innerText = 'Arquivos (PDF, JPG, PNG — múltiplos permitidos)';
+            hint.innerText = 'Selecione uma ou mais imagens/PDFs.';
+        } else {
+            input.accept = '.pdf';
+            input.multiple = false;
+            label.innerText = 'Arquivo (PDF)';
+            hint.innerText = 'Apenas PDF para este tipo de procedimento.';
+        }
+    }
+
+    async function handleUpload(e) {
+        e.preventDefault();
+        const btn = document.getElementById('upBtn');
+        const bar = document.getElementById('uploadBar');
+        const status = document.getElementById('uploadStatus');
+        const progress = document.getElementById('uploadProgress');
+
+        btn.disabled = true;
+        btn.innerText = 'Enviando...';
+        progress.classList.remove('hidden');
+        bar.style.width = '30%';
+        status.innerText = 'Enviando arquivo(s)...';
+
+        const fd = new FormData();
+        fd.append('accession_number', document.getElementById('upAccession').value.trim());
+        fd.append('patient_id',       document.getElementById('upPatientId').value.trim());
+        fd.append('patient_name',     document.getElementById('upPatientName').value.trim());
+        fd.append('procedure_type',   document.getElementById('upProcedure').value);
+        fd.append('exam_date',        document.getElementById('upDate').value);
+        fd.append('file_type',        'LAUDO');
+
+        const files = document.getElementById('upFile').files;
+        for (const f of files) fd.append('file', f);
+
+        try {
+            bar.style.width = '60%';
+            const r = await authFetch('/api/upload', { method: 'POST', body: fd });
+            const d = await r.json();
+
+            if (r.ok) {
+                bar.style.width = '100%';
+                status.innerText = 'Upload concluído!';
+                setTimeout(() => {
+                    closeUploadModal();
+                    showToast('Exame enviado com sucesso!', 'success');
+                    runSearch();
+                }, 600);
+            } else {
+                const msg = d.detail || d.message || 'Erro no upload.';
+                showToast(msg, 'error');
+                progress.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Erro de conexão.', 'error');
+            progress.classList.add('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'ENVIAR EXAME';
+        }
+    }
+
+    // Busca inicial ao carregar
+    runSearch();
+</script>
+{% endblock %}
