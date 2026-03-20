@@ -1,78 +1,68 @@
+"""
+reset_system.py — Reseta banco e storage para estado limpo.
+
+Correção: birth_date agora incluído no usuário admin criado.
+"""
 import os
 import shutil
 import sys
-from sqlalchemy.orm import Session
 
-# Garante que o Python encontre os módulos locais
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from database import engine, Base, SessionLocal, STORAGE_DIR
-from models import User, Patient, ExamSession, ExamFile, AuditLog
+from database import Base, SessionLocal, STORAGE_DIR, engine
+from models import User
 from security import get_password_hash
 
-def reset_system():
-    print("--- INICIANDO RESET DO SISTEMA NEXUS ---")
 
-    # 1. LIMPEZA DE ARQUIVOS (STORAGE)
-    print(f"[1/3] Limpando diretório de arquivos: {STORAGE_DIR}")
-    if os.path.exists(STORAGE_DIR):
-        try:
-            shutil.rmtree(STORAGE_DIR)
-            print("      Diretório antigo removido.")
-        except Exception as e:
-            print(f"      Erro ao remover diretório: {e}")
-    
-    # Recria a pasta vazia
-    os.makedirs(STORAGE_DIR, exist_ok=True)
-    print("      Diretório de storage recriado.")
+def reset_system() -> None:
+    print("--- INICIANDO RESET DO SISTEMA ORBISCLIN ---")
 
-    # 2. LIMPEZA DO BANCO DE DADOS
-    print("[2/3] Resetando Banco de Dados (SQLite)...")
+    # 1. Storage
+    from database import STORAGE_DIR
+    print(f"[1/3] Limpando storage: {STORAGE_DIR}")
+    if STORAGE_DIR.exists():
+        shutil.rmtree(STORAGE_DIR)
+        print("      Diretório removido.")
+    STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    print("      Storage recriado.")
+
+    # 2. Banco
+    print("[2/3] Resetando banco de dados...")
+    Base.metadata.drop_all(bind=engine)
+    print("      Tabelas removidas.")
+    Base.metadata.create_all(bind=engine)
+    print("      Tabelas criadas.")
+
+    # 3. Admin
+    print("[3/3] Criando usuário administrador...")
+    db = SessionLocal()
     try:
-        # Dropa todas as tabelas
-        Base.metadata.drop_all(bind=engine)
-        print("      Tabelas antigas excluídas.")
-        
-        # Cria todas as tabelas novamente
-        Base.metadata.create_all(bind=engine)
-        print("      Novas tabelas criadas.")
-    except Exception as e:
-        print(f"      Erro no banco de dados: {e}")
-        return
-
-    # 3. CRIAÇÃO DE USUÁRIO PADRÃO
-    print("[3/3] Criando Usuário Administrador Padrão...")
-    db: Session = SessionLocal()
-    try:
-        # Senha "admin123" atende aos requisitos de complexidade (Letra + Número + 8 chars)
-        admin_user = User(
+        admin = User(
             username="admin",
             full_name="ADMINISTRADOR",
             matricula="0001",
+            birth_date="1990-01-01",   # ← corrigido: campo estava ausente
             role="ADMIN",
             is_active=True,
-            hashed_password=get_password_hash("admin123") 
+            hashed_password=get_password_hash("admin123"),
         )
-        
-        db.add(admin_user)
+        db.add(admin)
         db.commit()
-        print("      Usuário 'admin' criado com sucesso.")
-        
+        print("      Usuário 'admin' criado.")
     except Exception as e:
-        print(f"      Erro ao criar usuário: {e}")
+        print(f"      Erro: {e}")
     finally:
         db.close()
 
     print("\n--- RESET CONCLUÍDO ---")
-    print("Acesse o sistema com:")
-    print("Usuário: admin")
-    print("Senha:   admin123")
-    print("-----------------------")
+    print("Login: admin | Senha: admin123")
+    print("⚠️  Altere a senha imediatamente após o primeiro acesso.")
+    print("-" * 40)
+
 
 if __name__ == "__main__":
-    # Confirmação de segurança para evitar acidentes em produção
-    confirm = input("ATENÇÃO: Isso apagará TODOS os dados e arquivos. Digite 'RESET' para confirmar: ")
-    if confirm == "RESET":
+    confirm = input("⚠️  ATENÇÃO: Apagará TODOS os dados. Digite 'RESET' para confirmar: ")
+    if confirm.strip() == "RESET":
         reset_system()
     else:
         print("Operação cancelada.")
