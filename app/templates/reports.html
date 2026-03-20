@@ -1,12 +1,11 @@
 {% extends "base.html" %}
-
-{% block title %}Nexus - Relatórios{% endblock %}
+{% block title %}OrbisClin — Relatórios{% endblock %}
 {% block subtitle %}Relatórios Gerenciais{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto space-y-6">
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 class="text-joinville font-bold mb-4">Filtros do Relatório</h3>
+        <h3 class="text-orbislight font-bold mb-4">Filtros do Relatório</h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div><label class="lbl">De</label><input type="date" id="repStart" class="inp"></div>
             <div><label class="lbl">Até</label><input type="date" id="repEnd" class="inp"></div>
@@ -25,7 +24,7 @@
             </div>
         </div>
         <div class="mt-4 flex flex-wrap gap-3">
-            <button onclick="runReport()" class="bg-joinville text-white font-bold py-2 px-6 rounded hover:bg-blue-900 transition shadow">GERAR RELATÓRIO</button>
+            <button onclick="runReport()" class="bg-orbis text-white font-bold py-2 px-6 rounded hover:bg-orbislight transition shadow">GERAR RELATÓRIO</button>
             <div class="h-auto w-px bg-gray-300 mx-2"></div>
             <button onclick="exportCSV()" class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700 transition shadow flex items-center gap-2">
                 <span>📊</span> EXCEL (CSV)
@@ -56,166 +55,98 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
 <script>
     let currentData = [];
 
-    function setMaxReportDates() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('repStart').max = today;
-        document.getElementById('repEnd').max = today;
-    }
-    setMaxReportDates();
+    document.getElementById('repStart').max = new Date().toISOString().split('T')[0];
+    document.getElementById('repEnd').max   = new Date().toISOString().split('T')[0];
 
-    function formatDate(dateStr) {
-        if (!dateStr) return "-";
-        const parts = dateStr.split('-');
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    async function runReport(){
+    async function runReport() {
         const btn = document.querySelector('button[onclick="runReport()"]');
-        const originalText = btn.innerText;
-        btn.disabled = true; btn.innerText = "GERANDO...";
-
+        btn.disabled = true; btn.innerText = 'GERANDO...';
         try {
             const ps = new URLSearchParams({
                 start: document.getElementById('repStart').value,
-                end: document.getElementById('repEnd').value,
-                type: document.getElementById('repType').value,
-                req: document.getElementById('repReq').value
+                end:   document.getElementById('repEnd').value,
+                type:  document.getElementById('repType').value,
+                req:   document.getElementById('repReq').value,
             });
-
             const r = await authFetch('/api/reports?' + ps.toString());
-
-            if(r.ok){
-                currentData = await r.json();
-                const tb = document.getElementById('repBody');
-                tb.innerHTML = '';
-
-                currentData.forEach(i => {
-                    tb.innerHTML += `
-                    <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                        <td class="px-6 py-2 text-gray-600 font-mono text-xs">${i.exam_date}</td>
+            if (!r.ok) { showToast('Erro ao buscar dados.', 'error'); return; }
+            currentData = await r.json();
+            const tb = document.getElementById('repBody');
+            tb.innerHTML = '';
+            if (currentData.length === 0) { showToast('Nenhum dado encontrado.', 'info'); return; }
+            currentData.forEach(i => {
+                tb.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-2 text-gray-600 font-mono text-xs">${i.exam_date || '-'}</td>
                         <td class="px-6 py-2 font-bold text-gray-800">${i.patient_name}</td>
                         <td class="px-6 py-2"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-bold border border-blue-100">${i.procedure}</span></td>
-                        <td class="px-6 py-2 text-xs text-gray-500 uppercase">${i.requesting_physician}</td>
-                        <td class="px-6 py-2 text-xs text-gray-500 uppercase">${i.performing_physician}</td>
+                        <td class="px-6 py-2 text-xs text-gray-500 uppercase">${i.requesting_physician || '-'}</td>
+                        <td class="px-6 py-2 text-xs text-gray-500 uppercase">${i.performing_physician || '-'}</td>
                     </tr>`;
-                });
-
-                if(currentData.length === 0) {
-                    if(typeof showToast === 'function') showToast('Nenhum dado encontrado.', 'info');
-                    else alert('Nenhum dado encontrado.');
-                } else {
-                    if(typeof showToast === 'function') showToast('Relatório gerado!', 'success');
-                }
-            } else {
-                if(typeof showToast === 'function') showToast('Erro ao buscar dados.', 'error');
-                else alert('Erro ao buscar dados.');
-            }
-        } catch(e) {
-            console.error(e);
-            if(typeof showToast === 'function') showToast('Erro de conexão.', 'error');
-            else alert('Erro de conexão.');
-        } finally {
-            btn.disabled = false; btn.innerText = originalText;
-        }
+            });
+            showToast(`${currentData.length} registros carregados.`, 'success');
+        } catch(e) { showToast('Erro de conexão.', 'error'); }
+        finally { btn.disabled = false; btn.innerText = 'GERAR RELATÓRIO'; }
     }
 
     function getStamp() {
-        return `Gerado por: ${localStorage.getItem('nexus_user')} em ${new Date().toLocaleString('pt-BR')}`;
+        return `Gerado por: ${localStorage.getItem('orbisclin_user') || 'Usuário'} em ${new Date().toLocaleString('pt-BR')}`;
     }
 
     function exportCSV() {
-        if(currentData.length === 0) {
-            if(typeof showToast === 'function') return showToast("Gere o relatório primeiro.", 'error');
-            return alert("Gere o relatório primeiro.");
-        }
-        let csv = "\uFEFF" + getStamp() + "\n\nData;Paciente;Tipo;Solicitante;Executante\n";
+        if (!currentData.length) { showToast('Gere o relatório primeiro.', 'error'); return; }
+        let csv = '\uFEFF' + getStamp() + '\n\nData;Paciente;Tipo;Solicitante;Executante\n';
         currentData.forEach(r => { csv += `${r.exam_date};${r.patient_name};${r.procedure};${r.requesting_physician};${r.performing_physician}\n`; });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-        link.download = `Nexus_Export_${new Date().toISOString().slice(0,10)}.csv`;
-        link.click();
-        if(typeof showToast === 'function') showToast('Download CSV iniciado.', 'success');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        a.download = `OrbisClin_Export_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        showToast('Download CSV iniciado.', 'success');
     }
 
     function exportPDF() {
-        if (currentData.length === 0) {
-            if(typeof showToast === 'function') return showToast("Gere o relatório primeiro.", 'error');
-            return alert("Gere o relatório primeiro.");
-        }
-
+        if (!currentData.length) { showToast('Gere o relatório primeiro.', 'error'); return; }
         try {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
+            const pw = doc.internal.pageSize.width;
+            const ph = doc.internal.pageSize.height;
 
-            // 1. Cabeçalho Institucional
-            doc.setFillColor(0, 45, 114);
-            doc.rect(0, 0, pageWidth, 22, 'F');
-            doc.setFontSize(16);
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.text("Relatório Analítico Nexus", 14, 14);
+            doc.setFillColor(14, 47, 102);
+            doc.rect(0, 0, pw, 22, 'F');
+            doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+            doc.text('Relatório Analítico — OrbisClin', 14, 14);
 
-            // 2. Contexto dos Filtros
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "normal");
-
+            doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont('helvetica','normal');
             const start = document.getElementById('repStart').value;
-            const end = document.getElementById('repEnd').value;
-            const type = document.getElementById('repType').value || "TODOS";
-            const req = document.getElementById('repReq').value;
+            const end   = document.getElementById('repEnd').value;
+            const type  = document.getElementById('repType').value || 'TODOS';
+            doc.text(`Período: ${start||'Início'} a ${end||'Hoje'}  |  Tipo: ${type}`, 14, 29);
 
-            let contextText = `FILTROS: Período: ${start ? formatDate(start) : 'Início'} a ${end ? formatDate(end) : 'Hoje'}`;
-            contextText += `  |  Tipo: ${type}`;
-            if(req) contextText += `  |  Solicitante: ${req.toUpperCase()}`;
-
-            doc.text(contextText, 14, 29);
-
-            // 3. Tabela (Sem rodapé aqui)
             doc.autoTable({
                 startY: 34,
-                head: [["Data", "Paciente", "Tipo", "Solicitante", "Executante"]],
-                body: currentData.map(r => [r.exam_date, r.patient_name, r.procedure, r.requesting_physician, r.performing_physician]),
+                head: [['Data','Paciente','Tipo','Solicitante','Executante']],
+                body: currentData.map(r => [r.exam_date||'-', r.patient_name, r.procedure, r.requesting_physician||'-', r.performing_physician||'-']),
                 theme: 'striped',
-                headStyles: { fillColor: [0, 45, 114] },
+                headStyles: { fillColor: [14,47,102] },
                 styles: { fontSize: 8 },
-                columnStyles: {
-                    0: { cellWidth: 25 },
-                    2: { cellWidth: 25 },
-                }
+                columnStyles: { 0: { cellWidth: 25 }, 2: { cellWidth: 25 } },
             });
 
-            // 4. Rodapé Pós-Processado (Para garantir Total de Páginas correto)
-            const totalPages = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
+            const total = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= total; i++) {
                 doc.setPage(i);
-
-                doc.setFontSize(7);
-                doc.setTextColor(150, 150, 150);
-
-                // Esquerda: Auditoria (Quem e Quando)
-                const footerText = getStamp();
-                doc.text(footerText, 14, pageHeight - 10);
-
-                // Direita: Paginação Correta "Página X de Y"
-                doc.setFont("helvetica", "normal");
-                const pageText = `Página ${i} de ${totalPages}`;
-                const textWidth = doc.getTextWidth(pageText);
-                doc.text(pageText, pageWidth - 14 - textWidth, pageHeight - 10);
+                doc.setFontSize(7); doc.setTextColor(150,150,150);
+                doc.text(getStamp(), 14, ph - 10);
+                const pg = `Página ${i} de ${total}`;
+                doc.text(pg, pw - 14 - doc.getTextWidth(pg), ph - 10);
             }
-
-            doc.save(`Relatorio_Nexus_${new Date().toISOString().slice(0,10)}.pdf`);
-            if(typeof showToast === 'function') showToast('Download PDF iniciado.', 'success');
-        } catch(e) {
-            console.error(e);
-            if(typeof showToast === 'function') showToast('Erro ao gerar PDF.', 'error');
-        }
+            doc.save(`OrbisClin_Relatorio_${new Date().toISOString().slice(0,10)}.pdf`);
+            showToast('Download PDF iniciado.', 'success');
+        } catch(e) { console.error(e); showToast('Erro ao gerar PDF.', 'error'); }
     }
 </script>
 {% endblock %}

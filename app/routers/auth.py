@@ -1,35 +1,81 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from sqlalchemy import or_ # Importação Nova
-from database import get_db
-from models import User
-from security import verify_password, create_access_token, log_audit
+"""
+app/routers/auth.py — Login, logout e refresh.
 
-router = APIRouter()
+Correções em relação à versão anterior:
+  - Login agora seta httponly cookie via set_auth_cookie()
+  - Novo endpoint POST /api/auth/logout que limpa o cookie no servidor
+  - Rate limiting: 10 tentativas/minuto por IP via slowapi
+  - Login aceita username OU matrícula (mantido do original)
+  - IP do cliente registrado na auditoria
+"""
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.models import User
+from app.core.security import (
+    clear_auth_cookie,
+    create_access_token,
+    log_audit,
+    set_auth_cookie,
+    verify_password,
+)
+
+limiter = Limiter(key_func=get_remote_address)
+router = APIRouter(tags=["Auth"])
+
 
 @router.post("/token")
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # Alteração: Busca por username OU matrícula
+@router.post("/api/auth/login")
+@limiter.limit("10/minute")
+async def login(
+    request: Request,
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+    client_ip = get_remote_address(request)
+
+    # Aceita login por username OU matrícula
     user = db.query(User).filter(
         or_(
-            User.username == form_data.username, 
-            User.matricula == form_data.username
+            User.username == form_data.username,
+            User.matricula == form_data.username,
         )
     ).first()
-    
-    ip = request.client.host
-    
-    # Validação de senha
+
     if not user or not verify_password(form_data.password, user.hashed_password):
-        # Log genérico para não dar dicas se foi user ou senha
-        log_audit(db, form_data.username, "LOGIN_FAILED", f"IP: {ip}", "Credenciais inválidas")
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-        
+        log_audit(
+            db, form_data.username, "LOGIN_FAILED", form_data.username,
+            f"IP: {client_ip} — Credenciais inválidas",
+        )
+        raise HTTPException(status_code=401, detail="Credenciais inválidas.")
+
     if not user.is_active:
-        log_audit(db, user.username, "LOGIN_BLOCKED", f"IP: {ip}", "Usuário inativo")
-        raise HTTPException(status_code=401, detail="Usuário desativado.")
-        
-    log_audit(db, user.username, "LOGIN_SUCCESS", f"IP: {ip}", "Sessão iniciada via " + ("Matrícula" if user.matricula == form_data.username else "Login"))
+        log_audit(db, user.username, "LOGIN_BLOCKED", user.username, f"IP: {client_ip}")
+        raise HTTPException(status_code=403, detail="Usuário inativo. Contate o administrador.")
+
     token = create_access_token(data={"sub": user.username})
-    return {"access_token": token, "token_type": "bearer", "user_full_name": user.full_name, "role": user.role}
+
+    via = "Matrícula" if user.matricula == form_data.username else "Login"
+    log_audit(db, user.username, "LOGIN_SUCCESS", user.username, f"IP: {client_ip} via {via}")
+
+    response = JSONResponse({
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "user_full_name": user.full_name,
+    })
+    set_auth_cookie(response, token)
+    return response
+
+
+@router.post("/api/auth/logout")
+async def logout():
+    response = JSONResponse({"message": "Logout realizado."})
+    clear_auth_cookie(response)
+    return response

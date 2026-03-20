@@ -1,5 +1,6 @@
 """
-config.py — Configurações centralizadas com validação via pydantic-settings.
+app/core/config.py — Configurações centralizadas com validação via pydantic-settings.
+Todas as variáveis de ambiente são lidas aqui. Nunca use os.getenv() direto nos routers.
 """
 import secrets
 from functools import lru_cache
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "8.0"
     APP_NAME: str = "OrbisClin"
 
+    # Defina no .env: python -c "import secrets; print(secrets.token_hex(32))"
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
@@ -30,7 +32,8 @@ class Settings(BaseSettings):
             import logging
             logging.warning(
                 "⚠️  SECRET_KEY não definida no .env! "
-                "Usando chave temporária — tokens serão invalidados ao reiniciar."
+                "Usando chave temporária — tokens serão invalidados ao reiniciar. "
+                "Defina SECRET_KEY no .env para produção."
             )
             return secrets.token_hex(32)
         return self.SECRET_KEY

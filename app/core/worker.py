@@ -1,11 +1,7 @@
 """
-worker.py — Celery worker para tarefas assíncronas.
+app/core/worker.py — Celery worker para extração de texto de PDFs.
 
-Correções:
-  1. SessionLocal instanciado dentro da task (não no import), evitando
-     problemas de thread-safety do SQLite em processos separados.
-  2. Tratamento explícito de PDFs corrompidos/protegidos por senha.
-  3. Timeout de processamento para PDFs muito grandes.
+Imports tardios dentro da task garantem isolamento por processo (SQLite thread-safety).
 """
 import os
 import logging
@@ -29,7 +25,6 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="America/Sao_Paulo",
     enable_utc=True,
-    # Evita tasks zumbis
     task_soft_time_limit=120,
     task_time_limit=180,
 )
@@ -37,13 +32,9 @@ celery_app.conf.update(
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=30)
 def extract_text_from_pdf_task(self, file_path: str, file_id: int) -> str:
-    """
-    Extrai texto de um PDF e salva no campo extracted_text do ExamFile.
-    Importa SessionLocal aqui dentro para garantir isolamento por processo.
-    """
-    # Import tardio: garante que cada worker cria sua própria conexão
-    from database import SessionLocal
-    from models import ExamFile
+    # Import tardio: cada worker cria sua própria conexão ao banco
+    from app.core.database import SessionLocal
+    from app.core.models import ExamFile
 
     if not file_path.lower().endswith(".pdf"):
         return "Skipped: not a PDF"
@@ -54,15 +45,12 @@ def extract_text_from_pdf_task(self, file_path: str, file_id: int) -> str:
 
     db = SessionLocal()
     try:
-        logger.info(f"[CELERY] Extraindo texto do arquivo ID={file_id}: {file_path}")
-
         try:
             doc = fitz.open(file_path)
         except fitz.FileDataError as e:
             logger.warning(f"[CELERY] PDF corrompido (ID={file_id}): {e}")
             return f"Skipped: corrupt PDF — {e}"
 
-        # PDF protegido por senha
         if doc.needs_pass:
             logger.warning(f"[CELERY] PDF protegido por senha (ID={file_id})")
             doc.close()
@@ -82,16 +70,13 @@ def extract_text_from_pdf_task(self, file_path: str, file_id: int) -> str:
                 db.commit()
                 logger.info(f"[CELERY] Texto salvo para ID={file_id} ({len(clean_text)} chars)")
                 return "Success"
-            else:
-                logger.warning(f"[CELERY] ExamFile ID={file_id} não encontrado no banco.")
-                return "Skipped: record not found"
+            return "Skipped: record not found"
 
         return "Empty: no text extracted"
 
     except Exception as exc:
         db.rollback()
         logger.error(f"[CELERY] Erro inesperado (ID={file_id}): {exc}", exc_info=True)
-        # Tenta novamente em caso de erro transitório
         raise self.retry(exc=exc)
 
     finally:

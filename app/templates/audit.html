@@ -1,31 +1,89 @@
 {% extends "base.html" %}
-{% block title %}Nexus - Auditoria{% endblock %}
+{% block title %}OrbisClin — Auditoria{% endblock %}
 {% block subtitle %}Trilha de Auditoria{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+<div class="max-w-7xl mx-auto space-y-4">
+
+    <!-- Filtros -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+        <div class="flex flex-wrap gap-4 items-end">
+            <div><label class="lbl">De</label><input type="date" id="auditStart" class="inp w-40"></div>
+            <div><label class="lbl">Até</label><input type="date" id="auditEnd" class="inp w-40"></div>
+            <button onclick="loadAudit()" class="bg-orbis hover:bg-orbislight text-white font-bold py-2 px-6 rounded-lg shadow text-sm transition">FILTRAR</button>
+            <button onclick="exportAuditCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg shadow text-sm transition flex items-center gap-2">
+                <span>📊</span> CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 text-gray-500 font-bold uppercase border-b border-gray-200">
-                <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Usuário</th><th class="px-6 py-3">Ação</th><th class="px-6 py-3">Alvo</th><th class="px-6 py-3">Detalhes</th></tr>
+            <thead class="bg-gray-50 text-gray-500 font-bold uppercase border-b border-gray-200 text-xs">
+                <tr>
+                    <th class="px-6 py-3">Data/Hora</th>
+                    <th class="px-6 py-3">Usuário</th>
+                    <th class="px-6 py-3">Ação</th>
+                    <th class="px-6 py-3">Alvo</th>
+                    <th class="px-6 py-3">Detalhes</th>
+                    <th class="px-6 py-3 text-center">Hash</th>
+                </tr>
             </thead>
             <tbody id="auditBody" class="divide-y divide-gray-100 font-mono text-xs"></tbody>
         </table>
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-    async function loadAudit(){
-        const r = await authFetch('/api/audit');
-        if(r.ok){
-            const logs = await r.json();
-            const tb = document.getElementById('auditBody'); tb.innerHTML='';
-            logs.forEach(l=>{
-                let c = l.action.includes('FAIL') || l.action.includes('BLOCKED') ? 'text-red-600 font-bold' : (l.action.includes('LOGIN') ? 'text-green-600' : 'text-blue-600');
-                tb.innerHTML+=`<tr class="hover:bg-gray-50"><td class="px-6 py-2 text-gray-400">${l.time}</td><td class="px-6 py-2 font-bold text-gray-700">${l.user}</td><td class="px-6 py-2 ${c}">${l.action}</td><td class="px-6 py-2">${l.target||'-'}</td><td class="px-6 py-2 text-gray-500 truncate max-w-xs" title="${l.details||''}">${l.details||'-'}</td></tr>`;
-            });
+    let auditData = [];
+
+    async function loadAudit() {
+        const start = document.getElementById('auditStart').value;
+        const end   = document.getElementById('auditEnd').value;
+        const params = new URLSearchParams();
+        if (start) params.append('start', start);
+        if (end)   params.append('end',   end);
+
+        const r = await authFetch('/api/audit?' + params.toString());
+        if (!r.ok) { showToast('Erro ao carregar auditoria.', 'error'); return; }
+        auditData = await r.json();
+
+        const tb = document.getElementById('auditBody');
+        tb.innerHTML = '';
+        if (auditData.length === 0) {
+            tb.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400">Nenhum registro encontrado.</td></tr>';
+            return;
         }
+        auditData.forEach(l => {
+            const c = l.action.includes('FAIL') || l.action.includes('BLOCKED')
+                ? 'text-red-600 font-bold'
+                : l.action.includes('LOGIN') ? 'text-green-600' : 'text-blue-600';
+            tb.innerHTML += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-2 text-gray-400">${l.date}</td>
+                    <td class="px-6 py-2 font-bold text-gray-700">${l.user}</td>
+                    <td class="px-6 py-2 ${c}">${l.action}</td>
+                    <td class="px-6 py-2">${l.target || '-'}</td>
+                    <td class="px-6 py-2 text-gray-500 truncate max-w-xs" title="${l.details || ''}">${l.details || '-'}</td>
+                    <td class="px-6 py-2 text-center"><span class="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-500">${l.hash_short || ''}</span></td>
+                </tr>`;
+        });
     }
+
+    function exportAuditCSV() {
+        if (!auditData.length) { showToast('Carregue os logs primeiro.', 'info'); return; }
+        let csv = '\uFEFFData/Hora;Usuário;Ação;Alvo;Detalhes;Hash\n';
+        auditData.forEach(l => {
+            csv += `${l.date};${l.user};${l.action};${l.target};${l.details};${l.hash_short||''}\n`;
+        });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        a.download = `OrbisClin_Auditoria_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+    }
+
     loadAudit();
 </script>
 {% endblock %}
