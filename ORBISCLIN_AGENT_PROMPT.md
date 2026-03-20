@@ -8,7 +8,7 @@ Você é um assistente de desenvolvimento especializado no projeto **OrbisClin**
 
 **OrbisClin** é um serviço web que recebe PDFs e imagens de exames clínicos, converte para DICOM quando necessário, e os envia ao servidor Orthanc PACS da instituição instalada. Mantém banco de dados local de auditoria, interface de busca para clínicos e dashboard gerencial.
 
-**Responsável pelo desenvolvimento:** Lucas Weber.
+**Responsável pelo desenvolvimento:** Lucas Weber — https://github.com/byweber/OrbisClin
 
 **Público-alvo:** Qualquer hospital, clínica privada ou rede de saúde com Orthanc PACS — uma instância por instituição (modelo self-hosted).
 
@@ -28,39 +28,49 @@ Você é um assistente de desenvolvimento especializado no projeto **OrbisClin**
 ## 2. ESTRUTURA DE ARQUIVOS
 
 ```
-<raiz do projeto>/
-├── config.py             # Settings com pydantic-settings, lê .env
-├── database.py           # Engine SQLAlchemy, SessionLocal, STORAGE_DIR
-├── models.py             # User, Patient, ExamSession, ExamFile, AuditLog
-├── security.py           # JWT, bcrypt, cookies, rate limit helpers
-├── main.py               # FastAPI app, lifespan, routers, middlewares
-├── worker.py             # Celery tasks (extração de texto PDF)
-├── backup.py             # Geração de backup zip
-├── reset_system.py       # Reset de banco e storage para estado limpo
+OrbisClin/                        ← raiz do repositório
+├── main.py                       # FastAPI app, lifespan, routers, middlewares
+├── conftest.py                   # Fixtures de teste (raiz — descoberta automática)
+├── reset_system.py               # Reset de banco e storage
 ├── requirements.txt
 ├── pytest.ini
-├── .env                  # NÃO versionado — contém SECRET_KEY real
+├── .env                          # NÃO versionado — contém SECRET_KEY real
 ├── .env.example
-├── routers/
-│   ├── auth.py           # POST /token, POST /api/auth/login, POST /api/auth/logout
-│   ├── users.py          # CRUD completo: GET/POST /api/users/, PUT /{id}, PUT /{id}/status, POST /{id}/password, POST /me/password
-│   ├── exams.py          # POST /api/upload, GET /api/search, GET /view/{file_id}
-│   ├── stats.py          # GET /api/stats — retorna total_exams, total_files, uploads_today, history, types
-│   ├── audit.py          # GET /api/audit?start=&end=
-│   ├── reports.py        # GET /api/reports?start=&end=&type=&req=
-│   ├── system.py         # GET /api/system/backup
-│   └── timeline.py       # GET /api/timeline/{patient_id}
-├── templates/
-│   ├── base.html         # Layout base: logo OrbisClin inline SVG, menu, toast, modal de senha, authFetch()
-│   ├── login.html        # Login com logo OrbisClin, sem token no localStorage
-│   ├── home.html         # Busca de exames + modal de upload
-│   ├── timeline.html     # Timeline evolutiva de imagens dermatológicas
-│   ├── dashboard.html    # Charts gerenciais (Chart.js)
-│   ├── admin.html        # Gestão de usuários e ferramentas ADMIN
-│   ├── audit.html        # Visualização da trilha de auditoria
-│   └── reports.html      # Relatórios filtráveis
+├── .gitignore
+├── README.md
+├── ORBISCLIN_AGENT_PROMPT.md
+├── app/
+│   ├── __init__.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py             # Settings com pydantic-settings, lê .env
+│   │   ├── database.py           # Engine SQLAlchemy, SessionLocal, STORAGE_DIR
+│   │   ├── models.py             # User, Patient, ExamSession, ExamFile, AuditLog
+│   │   ├── security.py           # JWT, bcrypt, httponly cookie, rate limit helpers
+│   │   ├── worker.py             # Celery tasks (extração de texto PDF)
+│   │   └── backup.py             # Geração de backup zip
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── auth.py               # POST /token, POST /api/auth/login, POST /api/auth/logout
+│   │   ├── users.py              # CRUD: GET/POST /api/users/, PUT /{id}, PUT /{id}/status, POST /{id}/password, POST /me/password
+│   │   ├── exams.py              # POST /api/upload, GET /api/search, GET /view/{id}, GET/PUT /api/patients/{id}, PUT /api/sessions/{id}, DELETE /api/files/{id}
+│   │   ├── stats.py              # GET /api/stats
+│   │   ├── audit.py              # GET /api/audit?start=&end=
+│   │   ├── reports.py            # GET /api/reports?start=&end=&type=&req=
+│   │   ├── system.py             # GET /api/system/backup
+│   │   └── timeline.py           # GET /api/timeline/{patient_id}
+│   └── templates/
+│       ├── base.html             # Layout base: logo OrbisClin SVG, menu, toast, authFetch()
+│       ├── login.html            # Login com logo OrbisClin, sem token no localStorage
+│       ├── home.html             # Busca de exames + modal de upload
+│       ├── dashboard.html        # Charts gerenciais (Chart.js)
+│       ├── admin.html            # Gestão de usuários e backup
+│       ├── audit.html            # Trilha de auditoria com filtros e export CSV
+│       ├── reports.html          # Relatórios filtráveis com export CSV e PDF
+│       └── timeline.html         # Timeline evolutiva de imagens dermatológicas
 └── tests/
-    ├── conftest.py       # Fixtures: fresh_db, client, admin_client, viewer_client
+    ├── __init__.py
+    ├── conftest.py               # Re-exporta fixtures do conftest.py da raiz
     ├── test_auth.py
     ├── test_users.py
     ├── test_security.py
@@ -72,12 +82,12 @@ Você é um assistente de desenvolvimento especializado no projeto **OrbisClin**
 
 ## 3. IDENTIDADE VISUAL
 
-**Nome:** OrbisClin  
-**Tagline:** GESTÃO DE IMAGENS CLÍNICAS  
-**Cor primária:** `#0E2F66` (classe Tailwind: `orbis`)  
-**Cor secundária:** `#1A4FA0` (classe Tailwind: `orbislight`)  
-**Tipografia do logo:** Georgia / Times New Roman (serif) — "Orbis" em bold, "Clin" em regular  
-**Ícone:** Círculo médico (cruz branca) rodeado por anéis orbitais, com 3 pontos satelitais  
+**Nome:** OrbisClin
+**Tagline:** GESTÃO DE IMAGENS CLÍNICAS
+**Cor primária:** `#0E2F66` (classe Tailwind: `orbis`)
+**Cor secundária:** `#1A4FA0` (classe Tailwind: `orbislight`)
+**Tipografia do logo:** Georgia / Times New Roman (serif) — "Orbis" em bold, "Clin" em regular
+**Ícone:** Círculo médico (cruz branca) rodeado por anéis orbitais, com 3 pontos satelitais
 
 **Logo SVG inline** (versão header — fundo escuro):
 ```svg
@@ -117,12 +127,14 @@ class Patient:
     → sessions: List[ExamSession]
 
 class ExamSession:
+    __tablename__ = "exam_sessions"
     id, accession_number (unique), patient_id (FK)
     procedure_type, exam_date, requesting_physician, performing_physician, created_at
     → patient: Patient
     → files: List[ExamFile]
 
 class ExamFile:
+    __tablename__ = "exam_files"
     id, session_id (FK), file_type, file_path, filename
     extracted_text (Text, nullable)   # preenchido pelo worker Celery
     uploaded_at
@@ -131,6 +143,9 @@ class ExamFile:
 class AuditLog:
     id, username, action, target, details, timestamp
 ```
+
+> ⚠️ Tabelas são `exam_sessions` e `exam_files` (não `sessions` e `files`).
+> Qualquer mudança nos modelos requer `reset_system.py` ou migration Alembic.
 
 ---
 
@@ -167,6 +182,7 @@ func.lower(coluna).like(f"%{q.lower()}%")  # nunca .ilike() diretamente
 
 ```
 Login POST /token
+  → aceita username OU matrícula
   → valida credenciais
   → cria JWT (sub=username, exp=480min)
   → seta cookie httponly "orbisclin_session" (samesite=lax, secure=False em dev)
@@ -206,13 +222,14 @@ APP_VERSION=8.0
 
 ## 8. CONVENÇÕES DE CÓDIGO
 
-- **Configuração:** sempre via `get_settings()` de `config.py`
+- **Imports:** sempre via pacote completo `from app.core.config import get_settings` — nunca imports relativos planos
+- **Configuração:** sempre via `get_settings()` de `app.core.config`
 - **Auditoria:** toda ação relevante chama `log_audit(db, username, action, target, details)`
 - **Erros:** `raise HTTPException(status_code, detail={"message": "..."})` — frontend lê `d.detail?.message || d.detail`
-- **Imports no Celery:** `from database import SessionLocal` dentro da task, nunca no topo do módulo
+- **Imports no Celery:** `from app.core.database import SessionLocal` dentro da task, nunca no topo do módulo
 - **Templates:** todos herdam `base.html`. Versão no footer via `{{ request.state.app_version }}`
 - **CSS:** Tailwind CDN. Classes de cor: `bg-orbis`, `bg-orbislight`, `text-orbislight`. Sem arquivos CSS externos
-- **Testes:** banco `test_orbisclin.db` dropado após cada função. Celery monkeypatchado. STORAGE_DIR via `tmp_path`
+- **Testes:** `conftest.py` fica na **raiz** do projeto. `tests/conftest.py` apenas re-exporta as fixtures. Banco `test_orbisclin.db` dropado após cada função. Celery monkeypatchado com `monkeypatch.setattr`. STORAGE_DIR via `tmp_path`.
 
 ---
 
@@ -222,11 +239,11 @@ APP_VERSION=8.0
 |---|-----|----------|
 | 1 | File seek incorreto no upload | `seek(0)` → `read(4)` → `seek(0)` |
 | 2 | ILIKE não funciona no SQLite | `func.lower(col).like(f"%{q.lower()}%")` |
-| 3 | Endpoints de users faltando (PUT, status, password) | Implementados em `routers/users.py` |
-| 4 | `/api/stats` retornava campos errados para o dashboard | Corrigido: retorna `total_exams`, `total_files`, `uploads_today`, `history`, `types` |
+| 3 | Endpoints de users faltando (PUT, status, password) | Implementados em `app/routers/users.py` |
+| 4 | `/api/stats` retornava campos errados para o dashboard | Retorna `total_exams`, `total_files`, `uploads_today`, `history`, `types` |
 | 5 | `/api/audit`, `/api/reports`, `/api/system/backup` inexistentes | Criados em routers dedicados |
 | 6 | `@app.on_event("startup")` depreciado | Substituído por `lifespan` context manager |
-| 7 | Secret key hardcoded no código | `config.py` gera temporária com aviso se não definida no `.env` |
+| 7 | Secret key hardcoded no código | `config.py` gera temporária com aviso se não definida |
 | 8 | `index.html` desconectado do sistema | Substituído por `home.html` herdando `base.html` |
 | 9 | `timeline.html` sem herança de `base.html` | Reescrito com `extends base.html` |
 | 10 | Celery importava `SessionLocal` no topo do módulo | Import tardio dentro de cada task |
@@ -235,6 +252,11 @@ APP_VERSION=8.0
 | 13 | `birth_date` ausente no `reset_system.py` | Adicionado na criação do admin |
 | 14 | Versão dessincronizada no footer | Lida via `request.state.app_version` |
 | 15 | Token JWT no localStorage | Migrado para httponly cookie `orbisclin_session` |
+| 16 | `database.db` commitado no repositório | Adicionado ao `.gitignore` |
+| 17 | Imports planos (`from database import`) incompatíveis com estrutura `app/` | Todos migrados para `from app.core.X import` |
+| 18 | Tabelas com nomes genéricos `sessions`/`files` | Renomeadas para `exam_sessions`/`exam_files` |
+| 19 | `stats.py` continha código morto (`types_raw`) | Removido |
+| 20 | `conftest.py` em `tests/` causava conflito de descoberta | Movido para raiz; `tests/conftest.py` re-exporta |
 
 ---
 
@@ -248,7 +270,6 @@ APP_VERSION=8.0
 - **Notificações:** webhook/email ao médico solicitante após upload
 - **Visualizador DICOM embutido:** integração com OHIF Viewer ou Cornerstone.js
 - **Testes de integração frontend:** `dashboard.html`, `admin.html`, `audit.html`, `reports.html` sem cobertura ainda
-- **`backup.py`:** lógica existente não foi revisada nesta sessão
 
 ---
 
@@ -256,13 +277,14 @@ APP_VERSION=8.0
 
 1. **Identifique o arquivo** pela estrutura em §2
 2. **Verifique §9** antes de propor qualquer solução (não reintroduza bugs corrigidos)
-3. **Respeite §8** (imports, erros, auditoria, CSS)
+3. **Respeite §8** (imports via `app.core`, erros, auditoria, CSS)
 4. **Entregue arquivos completos** — sem diffs parciais
-5. **Novos endpoints:** registrar em `main.py` + adicionar teste em `tests/`
+5. **Novos endpoints:** registrar em `main.py` + adicionar teste
 6. **Novos templates:** herdar `base.html`, usar `authFetch()`, `showToast()`, cores `orbis`/`orbislight`
 7. **Mudanças no modelo:** avisar sobre necessidade de `reset_system.py` ou migration Alembic
 8. **Identidade visual:** usar sempre o logo SVG de §3, nunca logos externos de terceiros
+9. **Nunca commitar:** `.env`, `*.db`, `storage/`, `backups/` — todos no `.gitignore`
 
 ---
 
-*OrbisClin v8.0 — Sistema genérico de gestão de imagens clínicas*
+*OrbisClin v8.0 — Sistema genérico de gestão de imagens clínicas — github.com/byweber/OrbisClin*

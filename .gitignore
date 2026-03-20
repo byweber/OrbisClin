@@ -1,0 +1,35 @@
+# ── Banco e dados sensíveis ────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+.env
+
+# ── Storage e backups ──────────────────────────────────────────────
+storage/
+backups/
+test_storage/
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ── Pytest ────────────────────────────────────────────────────────
+.pytest_cache/
+test_orbisclin.db
+.coverage
+htmlcov/
+
+# ── IDE ───────────────────────────────────────────────────────────
+.vscode/
+# .idea/ mantido pois o projeto já versiona configurações do PyCharm
+
+# ── Sistema ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

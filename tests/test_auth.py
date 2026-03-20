@@ -4,7 +4,7 @@ tests/test_auth.py — Testes de autenticação.
 Cobre: login OK, login inválido, cookie httponly, logout, usuário inativo.
 """
 import pytest
-from tests.conftest import login
+from conftest import login
 
 
 class TestLogin:
