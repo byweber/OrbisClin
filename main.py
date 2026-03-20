@@ -95,6 +95,8 @@ async def audit_page(request: Request):    return templates.TemplateResponse("au
 async def reports_page(request: Request):  return templates.TemplateResponse("reports.html",   {"request": request})
 @app.get("/timeline",  response_class=HTMLResponse)
 async def timeline_page(request: Request): return templates.TemplateResponse("timeline.html",  {"request": request})
+@app.get("/viewer",    response_class=HTMLResponse)
+async def viewer_page(request: Request):   return templates.TemplateResponse("viewer.html",    {"request": request})
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

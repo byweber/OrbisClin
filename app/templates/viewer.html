@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}OrbisClin — Visualizador{% endblock %}
+{% block subtitle %}Visualizador de Imagens{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-4">
+
+    <!-- Cabeçalho da sessão -->
+    <div id="sessionHeader" class="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-4">
+                <a href="javascript:history.back()" class="text-orbislight hover:text-orbis transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                <div>
+                    <h2 class="font-bold text-gray-800 text-base" id="headerPatient">—</h2>
+                    <div class="flex items-center gap-3 mt-0.5">
+                        <span id="headerProcedure" class="text-[10px] font-bold px-2 py-0.5 rounded border"></span>
+                        <span class="text-xs text-gray-400 font-mono" id="headerDate">—</span>
+                        <span class="text-xs text-gray-400 font-mono" id="headerAccession">—</span>
+                    </div>
+                </div>
+            </div>
+            <span id="headerCounter" class="text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full"></span>
+        </div>
+    </div>
+
+    <!-- Estado: carregando -->
+    <div id="stateLoading" class="flex flex-col items-center justify-center py-32 gap-3">
+        <div class="spinner w-8 h-8"></div>
+        <p class="text-sm text-gray-400">Carregando imagens...</p>
+    </div>
+
+    <!-- Estado: erro -->
+    <div id="stateError" class="hidden flex-col items-center justify-center py-32 gap-3 text-center">
+        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-gray-400 font-bold" id="stateErrorMsg">Sessão não encontrada.</p>
+        <a href="javascript:history.back()" class="text-sm text-orbislight hover:underline font-bold">← Voltar</a>
+    </div>
+
+    <!-- Viewer principal -->
+    <div id="viewerContainer" class="hidden space-y-3">
+
+        <!-- Imagem principal -->
+        <div class="bg-black rounded-2xl overflow-hidden relative" style="min-height: 520px;">
+
+            <!-- Imagem -->
+            <div id="mainImageWrap" class="flex items-center justify-center w-full" style="min-height: 520px;">
+                <img id="mainImage" src="" alt=""
+                    class="max-w-full object-contain transition-opacity duration-200"
+                    style="max-height: 520px; cursor: zoom-in;"
+                    onclick="openZoom()"
+                    onerror="this.src=''; this.parentElement.innerHTML='<div class=\'text-white/40 text-center p-8\'>Imagem indisponível</div>'">
+            </div>
+
+            <!-- Botão anterior -->
+            <button id="btnPrev"
+                onclick="navigate(-1)"
+                class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition disabled:opacity-20 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+
+            <!-- Botão próximo -->
+            <button id="btnNext"
+                onclick="navigate(1)"
+                class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition disabled:opacity-20 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+
+            <!-- Indicador de posição -->
+            <div id="dotIndicators" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5"></div>
+
+            <!-- Botão zoom -->
+            <button onclick="openZoom()"
+                class="absolute top-3 right-3 w-8 h-8 rounded-lg bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition"
+                title="Ampliar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+                </svg>
+            </button>
+
+            <!-- Nome do arquivo -->
+            <div class="absolute top-3 left-3">
+                <span id="imageFilename" class="text-[11px] text-white/60 bg-black/40 px-2 py-1 rounded font-mono"></span>
+            </div>
+        </div>
+
+        <!-- Miniaturas -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-3">
+            <div id="thumbsContainer" class="flex gap-2 overflow-x-auto pb-1"
+                style="scrollbar-width: thin;">
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal: Zoom -->
+<div id="zoomModal"
+    class="fixed inset-0 bg-black/95 hidden z-50 flex items-center justify-center p-4"
+    onclick="closeZoom()">
+    <button class="absolute top-4 right-4 text-white/60 hover:text-white text-2xl" onclick="closeZoom()">✖</button>
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 flex gap-3">
+        <button onclick="zoomIn(); event.stopPropagation()"
+            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">+ Ampliar</button>
+        <button onclick="zoomOut(); event.stopPropagation()"
+            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">− Reduzir</button>
+        <button onclick="zoomReset(); event.stopPropagation()"
+            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">↺ Original</button>
+    </div>
+    <div style="overflow: auto; max-width: 95vw; max-height: 90vh;">
+        <img id="zoomImage" src="" alt=""
+            style="cursor: move; transition: transform 0.2s; transform-origin: center;"
+            onclick="event.stopPropagation()">
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const params      = new URLSearchParams(window.location.search);
+    const SESSION_ID  = params.get('session_id');
+
+    let images  = [];
+    let current = 0;
+    let zoomLevel = 1;
+
+    // ── Estado da UI ──────────────────────────────────────────────
+    function setState(state, msg = '') {
+        ['stateLoading','stateError','viewerContainer','sessionHeader'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+        if (state === 'loading') {
+            document.getElementById('stateLoading').classList.remove('hidden');
+        } else if (state === 'error') {
+            const el = document.getElementById('stateError');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+            document.getElementById('stateErrorMsg').innerText = msg;
+        } else if (state === 'loaded') {
+            document.getElementById('sessionHeader').classList.remove('hidden');
+            document.getElementById('viewerContainer').classList.remove('hidden');
+        }
+    }
+
+    // ── Carrega dados da sessão ───────────────────────────────────
+    async function loadSession() {
+        if (!SESSION_ID) { setState('error', 'Nenhuma sessão informada na URL.'); return; }
+        setState('loading');
+
+        try {
+            const r = await authFetch(`/api/search?q=${encodeURIComponent(SESSION_ID)}`);
+            if (!r.ok) { setState('error', 'Erro ao buscar sessão.'); return; }
+
+            const { data } = await r.json();
+            const session = (data || []).find(s => !s.is_pacs && String(s.id) === String(SESSION_ID));
+
+            if (!session) { setState('error', 'Sessão não encontrada.'); return; }
+
+            // Filtra apenas imagens (JPG/PNG)
+            images = (session.files || []).filter(f =>
+                f.name && /\.(jpg|jpeg|png)$/i.test(f.name)
+            );
+
+            if (images.length === 0) { setState('error', 'Nenhuma imagem encontrada nesta sessão.'); return; }
+
+            // Cabeçalho
+            const procColor = session.procedure === 'DERMATOLOGIA'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-orange-50 text-orange-700 border-orange-200';
+
+            document.getElementById('headerPatient').innerText     = session.patient_name;
+            document.getElementById('headerProcedure').innerText   = session.procedure || '';
+            document.getElementById('headerProcedure').className  += ` ${procColor}`;
+            document.getElementById('headerDate').innerText        = session.exam_date || '-';
+            document.getElementById('headerAccession').innerText   = `# ${session.accession_number}`;
+
+            buildThumbs();
+            buildDots();
+            setState('loaded');
+            showImage(0);
+
+        } catch(e) {
+            console.error(e);
+            setState('error', 'Erro de conexão.');
+        }
+    }
+
+    // ── Miniaturas ────────────────────────────────────────────────
+    function buildThumbs() {
+        const container = document.getElementById('thumbsContainer');
+        container.innerHTML = '';
+        images.forEach((img, idx) => {
+            const btn = document.createElement('button');
+            btn.id = `thumb-${idx}`;
+            btn.onclick = () => showImage(idx);
+            btn.className = 'flex-none rounded-xl overflow-hidden border-2 transition-all duration-150';
+            btn.style.cssText = 'width:72px; height:72px; border-color: transparent;';
+            btn.innerHTML = `
+                <img src="/view/${img.id}" alt="${img.name || ''}"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                    onerror="this.style.display='none';">`;
+            container.appendChild(btn);
+        });
+    }
+
+    // ── Indicadores de ponto ──────────────────────────────────────
+    function buildDots() {
+        const wrap = document.getElementById('dotIndicators');
+        wrap.innerHTML = '';
+        if (images.length <= 1) return;
+        images.forEach((_, idx) => {
+            const d = document.createElement('button');
+            d.id = `dot-${idx}`;
+            d.onclick = () => showImage(idx);
+            d.className = 'w-2 h-2 rounded-full transition-all duration-150';
+            d.style.background = 'rgba(255,255,255,0.4)';
+            wrap.appendChild(d);
+        });
+    }
+
+    // ── Exibe imagem pelo índice ──────────────────────────────────
+    function showImage(idx) {
+        if (idx < 0 || idx >= images.length) return;
+        current = idx;
+
+        const img    = images[idx];
+        const mainEl = document.getElementById('mainImage');
+
+        mainEl.style.opacity = '0';
+        setTimeout(() => {
+            mainEl.src              = `/view/${img.id}`;
+            mainEl.alt              = img.name || '';
+            mainEl.style.opacity    = '1';
+        }, 120);
+
+        document.getElementById('imageFilename').innerText  = img.name || '';
+        document.getElementById('headerCounter').innerText  = `${idx + 1} / ${images.length}`;
+
+        // Miniaturas — destaque na selecionada
+        images.forEach((_, i) => {
+            const t = document.getElementById(`thumb-${i}`);
+            if (!t) return;
+            t.style.borderColor = i === idx ? '#1A4FA0' : 'transparent';
+            t.style.transform   = i === idx ? 'scale(1.05)' : 'scale(1)';
+        });
+
+        // Scroll da miniatura ativa para o centro
+        const activeThumb = document.getElementById(`thumb-${idx}`);
+        if (activeThumb) {
+            activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        // Dots
+        images.forEach((_, i) => {
+            const d = document.getElementById(`dot-${i}`);
+            if (!d) return;
+            d.style.background = i === idx ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.35)';
+            d.style.width      = i === idx ? '20px' : '8px';
+        });
+
+        // Botões prev/next
+        document.getElementById('btnPrev').disabled = idx === 0;
+        document.getElementById('btnNext').disabled = idx === images.length - 1;
+    }
+
+    // ── Navegação ─────────────────────────────────────────────────
+    function navigate(dir) {
+        showImage(current + dir);
+    }
+
+    // ── Teclado ───────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (document.getElementById('zoomModal').classList.contains('hidden')) {
+            if (e.key === 'ArrowLeft')  navigate(-1);
+            if (e.key === 'ArrowRight') navigate(1);
+            if (e.key === 'Escape')     history.back();
+        } else {
+            if (e.key === 'Escape') closeZoom();
+            if (e.key === '+')      zoomIn();
+            if (e.key === '-')      zoomOut();
+            if (e.key === '0')      zoomReset();
+        }
+    });
+
+    // ── Zoom ──────────────────────────────────────────────────────
+    function openZoom() {
+        const img = images[current];
+        if (!img) return;
+        zoomLevel = 1;
+        const zImg = document.getElementById('zoomImage');
+        zImg.src = `/view/${img.id}`;
+        zImg.style.transform = 'scale(1)';
+        document.getElementById('zoomModal').classList.remove('hidden');
+    }
+
+    function closeZoom() {
+        document.getElementById('zoomModal').classList.add('hidden');
+        document.getElementById('zoomImage').src = '';
+        zoomLevel = 1;
+    }
+
+    function zoomIn()    { zoomLevel = Math.min(zoomLevel + 0.5, 5);   applyZoom(); }
+    function zoomOut()   { zoomLevel = Math.max(zoomLevel - 0.5, 0.5); applyZoom(); }
+    function zoomReset() { zoomLevel = 1; applyZoom(); }
+
+    function applyZoom() {
+        document.getElementById('zoomImage').style.transform = `scale(${zoomLevel})`;
+    }
+
+    loadSession();
+</script>
+{% endblock %}

@@ -92,6 +92,12 @@
         finally { btn.disabled = false; btn.innerText = 'GERAR RELATÓRIO'; }
     }
 
+    function _fmtDateBR(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
     function getStamp() {
         return `Gerado por: ${localStorage.getItem('orbisclin_user') || 'Usuário'} em ${new Date().toLocaleString('pt-BR')}`;
     }
@@ -102,7 +108,7 @@
         currentData.forEach(r => { csv += `${r.exam_date};${r.patient_name};${r.procedure};${r.requesting_physician};${r.performing_physician}\n`; });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-        a.download = `OrbisClin_Export_${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = `OrbisClin_Export_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`;
         a.click();
         showToast('Download CSV iniciado.', 'success');
     }
@@ -124,7 +130,7 @@
             const start = document.getElementById('repStart').value;
             const end   = document.getElementById('repEnd').value;
             const type  = document.getElementById('repType').value || 'TODOS';
-            doc.text(`Período: ${start||'Início'} a ${end||'Hoje'}  |  Tipo: ${type}`, 14, 29);
+            doc.text(`Período: ${_fmtDateBR(start)||'Início'} a ${_fmtDateBR(end)||'Hoje'}  |  Tipo: ${type}`, 14, 29);
 
             doc.autoTable({
                 startY: 34,
@@ -144,7 +150,7 @@
                 const pg = `Página ${i} de ${total}`;
                 doc.text(pg, pw - 14 - doc.getTextWidth(pg), ph - 10);
             }
-            doc.save(`OrbisClin_Relatorio_${new Date().toISOString().slice(0,10)}.pdf`);
+            doc.save(`OrbisClin_Relatorio_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
             showToast('Download PDF iniciado.', 'success');
         } catch(e) { console.error(e); showToast('Erro ao gerar PDF.', 'error'); }
     }

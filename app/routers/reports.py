@@ -1,6 +1,7 @@
 """
 app/routers/reports.py — Relatórios gerenciais filtráveis.
 """
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -44,9 +45,17 @@ async def get_reports(
     sessions = query.limit(1000).all()
     log_audit(db, current.username, "REPORT_GENERATED", f"Registros: {len(sessions)}")
 
+    def _fmt_date(d: str | None) -> str:
+        if not d:
+            return "-"
+        try:
+            return datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except ValueError:
+            return d
+
     return [
         {
-            "exam_date": s.exam_date or "-",
+            "exam_date": _fmt_date(s.exam_date),
             "patient_name": s.patient.name if s.patient else "-",
             "patient_id": s.patient_id,
             "accession_number": s.accession_number,

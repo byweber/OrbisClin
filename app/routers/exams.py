@@ -12,7 +12,6 @@ Correções:
 """
 import os
 import aiofiles
-import httpx
 from datetime import datetime
 from typing import List, Optional
 
@@ -32,6 +31,53 @@ router = APIRouter(tags=["Exams"])
 settings = get_settings()
 
 MULTI_FILE_PROCEDURES = {"DERMATOLOGIA", "AVALIAÇÃO DE FERIDAS"}
+
+
+# ── Extração de texto — Celery com fallback síncrono ─────────────────────────
+
+def _enqueue_text_extraction(file_path: str, file_id: int, db) -> None:
+    """
+    Tenta enfileirar a extração de texto via Celery/Redis.
+    Se Redis estiver indisponível, executa de forma síncrona no processo atual.
+    Nunca bloqueia nem lança exceção — extração é sempre opcional.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. Tenta Celery — verifica conexão com Redis antes de importar o worker
+    try:
+        import redis as _redis
+        _r = _redis.from_url(settings.REDIS_URL, socket_connect_timeout=1)
+        _r.ping()   # falha rápido (1s) se Redis estiver fora
+        _r.close()
+        # Redis OK — usa Celery
+        from app.core.worker import extract_text_from_pdf_task
+        extract_text_from_pdf_task.delay(file_path, file_id)
+        return
+    except Exception:
+        pass  # Redis fora — cai no fallback
+
+    # 2. Fallback síncrono — extrai texto direto no processo, sem travar
+    try:
+        import fitz
+        from app.core.models import ExamFile as _ExamFile
+        if not os.path.exists(file_path):
+            return
+        doc = fitz.open(file_path)
+        if doc.needs_pass:
+            doc.close()
+            return
+        text = " ".join(page.get_text() for page in doc)
+        doc.close()
+        clean = " ".join(text.upper().split())
+        if clean:
+            record = db.query(_ExamFile).filter(_ExamFile.id == file_id).first()
+            if record:
+                record.extracted_text = clean
+                db.commit()
+                logger.info(f"[SYNC] Texto extraído para ID={file_id} ({len(clean)} chars)")
+    except Exception as e:
+        logger.warning(f"[SYNC] Extração de texto falhou (ID={file_id}): {e}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -197,13 +243,8 @@ async def upload_exam(
         saved.append(new_file.id)
 
         if ext == ".pdf":
-            try:
-                from app.core.worker import extract_text_from_pdf_task
-                extract_text_from_pdf_task.delay(str(fpath), new_file.id)
-            except Exception as celery_err:
-                # Redis indisponível não bloqueia o upload — extração de texto é opcional
-                import logging
-                logging.warning(f"[CELERY] Task não enfileirada (Redis indisponível?): {celery_err}")
+            # Extração de texto: tenta Celery/Redis primeiro; se indisponível, faz direto no processo
+            _enqueue_text_extraction(str(fpath), new_file.id, db)
 
         log_audit(db, current_user.username, "UPLOAD", f"{pname} #{acc} [{file_type}]", f.filename)
 
@@ -260,7 +301,11 @@ async def search_exams(
             "birth_date_raw": s.patient.birth_date,
             "sex": s.patient.sex,
             "accession_number": s.accession_number,
-            "exam_date": s.exam_date,
+            "exam_date": (
+                datetime.strptime(s.exam_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+                if s.exam_date else "-"
+            ),
+            "exam_date_raw": s.exam_date,
             "procedure": s.procedure_type or "GERAL",
             "req_phys": s.requesting_physician,
             "perf_phys": s.performing_physician,

@@ -18,6 +18,22 @@ from app.core.security import (
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
+# ── Usuário atual — acessível a qualquer role autenticada ─────────────────────
+
+@router.get("/me")
+async def get_me(
+    current: User = Depends(get_current_user),
+):
+    """Endpoint leve para verificar autenticação e obter dados do usuário logado."""
+    return {
+        "id": current.id,
+        "username": current.username,
+        "full_name": current.full_name,
+        "role": current.role,
+        "is_active": current.is_active,
+    }
+
+
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
 @router.get("")

@@ -2,6 +2,10 @@
 tests/test_exams.py — Testes de upload e busca de exames.
 
 Usa arquivos sintéticos com magic bytes corretos (não depende de arquivos reais).
+
+NOTA: o worker Celery é patchado em app.core.worker (módulo de origem) porque
+extract_text_from_pdf_task usa lazy import dentro de exams.py — não existe mais
+como atributo do módulo exams, então monkeypatch deve apontar para a origem.
 """
 import io
 import pytest
@@ -30,20 +34,25 @@ COMMON_DATA = {
     "exam_date": "2025-01-15",
 }
 
+# Fixture reutilizável: patch do Celery no módulo de origem
+class _NoopTask:
+    @staticmethod
+    def delay(*args, **kwargs):
+        return None
+
 
 class TestUpload:
     def test_upload_pdf_ecg_sucesso(self, admin_client, tmp_path, monkeypatch):
-        # Monkeypatcha STORAGE_DIR para usar diretório temporário
         import app.core.database as database
+        import app.core.worker as worker_module
         monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
+        monkeypatch.setattr(worker_module, "extract_text_from_pdf_task", _NoopTask())
 
-        # Também precisa patchear o worker (Celery não disponível em testes)
-        import app.routers.exams as exams_module
-        monkeypatch.setattr(exams_module, "extract_text_from_pdf_task",
-                            type("T", (), {"delay": staticmethod(lambda *a: None)})())
-
-        r = admin_client.post("/api/upload", data={**COMMON_DATA, "procedure_type": "ECG"},
-            files={"file": make_pdf()})
+        r = admin_client.post(
+            "/api/upload",
+            data={**COMMON_DATA, "procedure_type": "ECG"},
+            files={"file": make_pdf()},
+        )
         assert r.status_code == 200
         assert r.json()["status"] == "success"
 
@@ -51,16 +60,18 @@ class TestUpload:
         import app.core.database as database
         monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
 
-        r = admin_client.post("/api/upload", data={**COMMON_DATA, "procedure_type": "ECG"},
-            files={"file": make_jpeg()})
+        r = admin_client.post(
+            "/api/upload",
+            data={**COMMON_DATA, "procedure_type": "ECG"},
+            files={"file": make_jpeg()},
+        )
         assert r.status_code == 400
 
     def test_upload_multiplos_arquivos_dermatologia(self, admin_client, tmp_path, monkeypatch):
         import app.core.database as database
+        import app.core.worker as worker_module
         monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
-        import app.routers.exams as exams_module
-        monkeypatch.setattr(exams_module, "extract_text_from_pdf_task",
-                            type("T", (), {"delay": staticmethod(lambda *a: None)})())
+        monkeypatch.setattr(worker_module, "extract_text_from_pdf_task", _NoopTask())
 
         r = admin_client.post(
             "/api/upload",
@@ -81,12 +92,41 @@ class TestUpload:
         )
         assert r.status_code == 400
 
+    def test_upload_pdf_dermatologia_sucesso(self, admin_client, tmp_path, monkeypatch):
+        """PDF também deve ser aceito em procedimentos multi-arquivo."""
+        import app.core.database as database
+        import app.core.worker as worker_module
+        monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
+        monkeypatch.setattr(worker_module, "extract_text_from_pdf_task", _NoopTask())
+
+        r = admin_client.post(
+            "/api/upload",
+            data={**COMMON_DATA, "accession_number": "ACC2025003", "procedure_type": "DERMATOLOGIA"},
+            files={"file": make_pdf()},
+        )
+        assert r.status_code == 200
+
+    def test_upload_png_dermatologia_sucesso(self, admin_client, tmp_path, monkeypatch):
+        import app.core.database as database
+        monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
+
+        r = admin_client.post(
+            "/api/upload",
+            data={**COMMON_DATA, "accession_number": "ACC2025004", "procedure_type": "DERMATOLOGIA"},
+            files={"file": make_png()},
+        )
+        assert r.status_code == 200
+
     def test_viewer_nao_pode_fazer_upload(self, viewer_client, tmp_path, monkeypatch):
-        # Viewer não tem permissão de upload — mas o endpoint não checa role,
-        # checa apenas autenticação. Ajuste se quiser adicionar restrição de role.
-        # Por ora, verifica que o viewer autenticado pode ou não subir.
-        # Este teste documenta o comportamento atual.
-        pass
+        import app.core.database as database
+        monkeypatch.setattr(database, "STORAGE_DIR", tmp_path)
+
+        r = viewer_client.post(
+            "/api/upload",
+            data={**COMMON_DATA, "procedure_type": "ECG"},
+            files={"file": make_pdf()},
+        )
+        assert r.status_code == 403
 
 
 class TestSearch:
@@ -127,7 +167,7 @@ class TestSearch:
 
     def test_busca_case_insensitive(self, admin_client, db):
         self._seed_exam(db)
-        r = admin_client.get("/api/search?q=maria")  # minúsculo
+        r = admin_client.get("/api/search?q=maria")
         assert r.status_code == 200
         data = r.json()["data"]
         assert any("MARIA" in d["patient_name"] for d in data if not d["is_pacs"])

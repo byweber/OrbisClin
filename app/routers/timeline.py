@@ -1,6 +1,7 @@
 """
 app/routers/timeline.py — Timeline evolutiva de imagens por paciente.
 """
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -9,6 +10,15 @@ from app.core.security import get_current_user
 from app.core import models
 
 router = APIRouter(tags=["Timeline"])
+
+
+def _fmt_date(d: str | None) -> str:
+    if not d:
+        return "-"
+    try:
+        return datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return d
 
 
 @router.get("/api/timeline/{patient_id}")
@@ -40,7 +50,8 @@ async def get_patient_timeline(
         ]
         if images:
             timeline_data.append({
-                "exam_date_fmt": s.exam_date,
+                "session_id": s.id,
+                "exam_date_fmt": _fmt_date(s.exam_date),
                 "procedure": s.procedure_type,
                 "accession_number": s.accession_number,
                 "images": [{"file_id": img.id, "filename": img.filename} for img in images],
