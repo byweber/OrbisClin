@@ -127,7 +127,8 @@
 {% block scripts %}
 <script>
     const params      = new URLSearchParams(window.location.search);
-    const SESSION_ID  = params.get('session_id');
+    const SESSION_ID  = params.get('session_id');     // id numérico da ExamSession
+    const ACCESSION   = params.get('accession');      // accession_number (alternativo)
 
     let images  = [];
     let current = 0;
@@ -154,15 +155,26 @@
 
     // ── Carrega dados da sessão ───────────────────────────────────
     async function loadSession() {
-        if (!SESSION_ID) { setState('error', 'Nenhuma sessão informada na URL.'); return; }
+        if (!SESSION_ID && !ACCESSION) {
+            setState('error', 'Nenhuma sessão informada na URL.');
+            return;
+        }
         setState('loading');
 
         try {
-            const r = await authFetch(`/api/search?q=${encodeURIComponent(SESSION_ID)}`);
+            // Busca pelo accession_number (único e indexado) — mais confiável que id interno
+            const searchTerm = ACCESSION || SESSION_ID;
+            const r = await authFetch(`/api/search?q=${encodeURIComponent(searchTerm)}`);
             if (!r.ok) { setState('error', 'Erro ao buscar sessão.'); return; }
 
             const { data } = await r.json();
-            const session = (data || []).find(s => !s.is_pacs && String(s.id) === String(SESSION_ID));
+
+            // Filtra pelo id exato ou pelo accession exato
+            const session = (data || []).find(s => {
+                if (s.is_pacs) return false;
+                if (ACCESSION)  return s.accession_number === ACCESSION;
+                return String(s.id) === String(SESSION_ID);
+            });
 
             if (!session) { setState('error', 'Sessão não encontrada.'); return; }
 

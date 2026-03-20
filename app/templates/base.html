@@ -36,7 +36,6 @@
 <!-- Header -->
 <header class="bg-orbis shadow-lg z-30 h-16 flex-none">
     <div class="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
-        <!-- Logo inline -->
         <div class="flex items-center cursor-pointer" onclick="window.location.href='/'">
             <svg width="170" height="48" viewBox="0 0 170 48" xmlns="http://www.w3.org/2000/svg">
                 <ellipse cx="24" cy="24" rx="21" ry="21" fill="none" stroke="white" stroke-width="0.8" opacity="0.25"/>
@@ -170,9 +169,10 @@
         } catch(e) { showToast('Erro de conexão.', 'error'); }
     }
 
+    // FIX: usa /api/users/me em vez de /api/stats — acessível a qualquer role autenticada
     (async () => {
         try {
-            const r = await fetch('/api/stats', { credentials:'same-origin' });
+            const r = await fetch('/api/users/me', { credentials:'same-origin' });
             if (r.status === 401) { window.location.href = '/login'; return; }
         } catch(e) {}
         renderGlobalMenu();
