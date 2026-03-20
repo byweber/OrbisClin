@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nexus{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        joinville: { DEFAULT: '#002d72', light: '#004a99', dark: '#001a4d' },
+                        success: { DEFAULT: '#10b981', light: '#ecfdf5', text: '#047857' }
+                    },
+                    animation: { 
+                        'fade-in-down': 'fadeInDown 0.3s ease-out',
+                        'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' 
+                    },
+                    keyframes: { 
+                        fadeInDown: { '0%': { opacity: '0', transform: 'translateY(-10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        slideInRight: { '0%': { transform: 'translateX(100%)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        .lbl{display:block;font-size:0.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:0.25rem;} 
+        .inp{width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:0.375rem;outline:none;font-size:0.875rem;}
+        .spinner { border: 3px solid rgba(0,0,0,0.1); border-left-color: #002d72; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-gray-800 overflow-hidden hidden" id="appBody">
+
+    <div id="toast-container" class="fixed top-20 right-5 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+
+    <header class="bg-joinville shadow-lg z-30 h-16 flex-none relative">
+        <div class="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
+            <div class="flex items-center gap-4 cursor-pointer" onclick="window.location.href='/'">
+                <img src="https://www.joinville.sc.gov.br/wp-content/uploads/2021/09/Logotipo_Prefeitura_SaoJose_horizontal_negativo.png" class="h-8 w-auto opacity-100">
+                <div class="border-l border-white/20 pl-4 text-white h-8 flex flex-col justify-center">
+                    <h1 class="text-xl font-bold leading-none tracking-tight">Nexus</h1>
+                    <p class="text-blue-200 text-[10px] font-medium tracking-[0.2em] uppercase">{% block subtitle %}Repositório Clínico{% endblock %}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4" id="headerActions"></div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6 bg-gray-50 relative">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 py-2 flex-none z-20">
+        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+            <p class="text-[10px] text-gray-400 uppercase tracking-wide">&copy; 2025 Lucas Weber</p>
+            <p class="text-[10px] font-mono text-gray-400 font-bold bg-gray-100 px-2 py-0.5 rounded">v7.3</p>
+        </div>
+    </footer>
+
+    <div id="myPasswordModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-200">
+            <div class="bg-joinville p-4 flex justify-between items-center"><h3 class="text-white font-bold text-lg">Alterar Senha</h3><button onclick="closeBaseModal('myPasswordModal')" class="text-white/80 hover:text-white">✖</button></div>
+            <form onsubmit="changeMyPasswordBase(event)" class="p-6 space-y-4">
+                <div><label class="lbl">Senha Atual</label><input type="password" id="baseCurrentPass" required class="inp"></div>
+                <div><label class="lbl">Nova Senha</label><input type="password" id="baseNewPass" required class="inp" placeholder="Min 8 chars, letras e números"></div>
+                <button type="submit" class="w-full py-3 bg-joinville hover:bg-blue-900 text-white font-bold rounded shadow">CONFIRMAR</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('nexus_token');
+        const user = localStorage.getItem('nexus_user');
+        const role = localStorage.getItem('nexus_role');
+
+        // --- SISTEMA DE TOASTS ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            // Configuração de cores e ícones baseados no tipo
+            let bgClass, borderClass, icon, textColor;
+            if (type === 'success') {
+                bgClass = 'bg-white'; borderClass = 'border-green-500'; textColor = 'text-gray-800';
+                icon = '<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            } else if (type === 'error') {
+                bgClass = 'bg-white'; borderClass = 'border-red-500'; textColor = 'text-gray-800';
+                icon = '<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            } else {
+                bgClass = 'bg-white'; borderClass = 'border-blue-500'; textColor = 'text-gray-800';
+                icon = '<svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            }
+
+            toast.className = `pointer-events-auto flex items-center gap-3 min-w-[300px] max-w-md p-4 rounded-lg shadow-2xl border-l-4 ${borderClass} ${bgClass} animate-slide-in-right transform transition-all duration-300`;
+            toast.innerHTML = `
+                <div class="flex-shrink-0">${icon}</div>
+                <div class="flex-1 text-sm font-bold ${textColor}">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-gray-600">✖</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Remove automaticamente após 4 segundos
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function renderGlobalMenu() {
+            const area = document.getElementById('headerActions');
+            let html = '';
+            
+            if (role === 'ADMIN') {
+                const current = window.location.pathname;
+                const linkClass = "text-white/70 hover:text-white font-bold text-xs flex items-center gap-1 transition uppercase tracking-wide";
+                const activeClass = "text-white font-bold text-xs flex items-center gap-1 transition uppercase tracking-wide border-b-2 border-white pb-0.5";
+                html += `<a href="/dashboard" class="${current==='/dashboard'?activeClass:linkClass}">Dashboard</a>`;
+                html += `<a href="/reports" class="ml-4 ${current==='/reports'?activeClass:linkClass}">Relatórios</a>`;
+                html += `<a href="/admin" class="ml-4 ${current==='/admin'?activeClass:linkClass}">Usuários</a>`;
+                html += `<div class="h-4 w-px bg-white/20 mx-4"></div>`; 
+            }
+
+            if (role !== 'VIEWER') {
+                if (typeof openUploadModal === 'function') {
+                    html += `<button onclick="openUploadModal()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-1.5 px-4 rounded transition flex items-center gap-2 text-xs backdrop-blur-sm mr-2 shadow-sm">+ NOVO EXAME</button>`;
+                } else {
+                     html += `<a href="/" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-1.5 px-4 rounded transition flex items-center gap-2 text-xs backdrop-blur-sm mr-2">BUSCAR EXAMES</a>`;
+                }
+            }
+
+            html += `
+                <div class="flex items-center gap-3 pl-2">
+                    <div class="text-right hidden md:block">
+                        <p class="text-white text-xs font-bold leading-tight">${user}</p>
+                        <p class="text-blue-300 text-[9px] font-bold uppercase tracking-wider">${role}</p>
+                    </div>
+                    <button onclick="document.getElementById('myPasswordModal').classList.remove('hidden')" class="text-white/60 hover:text-yellow-300 transition" title="Alterar Senha">🔑</button>
+                    <button onclick="localStorage.clear(); window.location.href='/login'" class="text-white/60 hover:text-red-300 transition" title="Sair">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    </button>
+                </div>
+            `;
+            area.innerHTML = html;
+        }
+
+        function closeBaseModal(id){ document.getElementById(id).classList.add('hidden'); }
+        async function authFetch(u,o={}){o.headers=o.headers||{};o.headers['Authorization']=`Bearer ${token}`;let r=await fetch(u,o);if(r.status===401){localStorage.clear();location.href='/login';}return r;}
+        
+        async function changeMyPasswordBase(e){
+            e.preventDefault(); 
+            const fd=new FormData(); 
+            fd.append('current_password',document.getElementById('baseCurrentPass').value); 
+            fd.append('new_password',document.getElementById('baseNewPass').value);
+            
+            try { 
+                // Alterado de PUT para POST
+                const r=await authFetch('/api/users/me/password',{method:'POST',body:fd}); 
+                if(r.ok){
+                    showToast('Senha alterada! Faça login novamente.', 'success');
+                    setTimeout(() => { localStorage.clear(); location.href='/login'; }, 2000);
+                } else {
+                    const d=await r.json(); showToast('Erro: '+(d.message||'Falha ao alterar senha'), 'error');
+                } 
+            } catch(e){ showToast('Erro de conexão com o servidor.', 'error'); }
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+    <script>
+        if (!token) { window.location.href = '/login'; } 
+        else { document.getElementById('appBody').classList.remove('hidden'); renderGlobalMenu(); }
+    </script>
+</body>
+</html>

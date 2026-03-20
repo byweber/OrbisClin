@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==3.2.0
+python-multipart
+python-dotenv
+aiofiles
+jinja2
+requests
+faker
+psycopg2-binary
