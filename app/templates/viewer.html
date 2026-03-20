@@ -3,7 +3,7 @@
 {% block subtitle %}Visualizador de Imagens{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto space-y-4">
+<div class="max-w-7xl mx-auto space-y-4">
 
     <!-- Cabeçalho da sessão -->
     <div id="sessionHeader" class="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4 hidden">
@@ -23,7 +23,16 @@
                     </div>
                 </div>
             </div>
-            <span id="headerCounter" class="text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full"></span>
+            <div class="flex items-center gap-3">
+                <span id="headerCounter" class="text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full"></span>
+                <button id="btnCompare" onclick="toggleCompare()"
+                    class="hidden items-center gap-2 px-4 py-2 bg-orbis hover:bg-orbislight text-white text-xs font-bold rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+                    </svg>
+                    <span id="btnCompareLabel">Comparar</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -42,164 +51,207 @@
         <a href="javascript:history.back()" class="text-sm text-orbislight hover:underline font-bold">← Voltar</a>
     </div>
 
-    <!-- Viewer principal -->
+    <!-- ══════════════════════════════════════════
+         MODO NORMAL — Slideshow único
+    ══════════════════════════════════════════ -->
     <div id="viewerContainer" class="hidden space-y-3">
-
-        <!-- Imagem principal -->
-        <div class="bg-black rounded-2xl overflow-hidden relative" style="min-height: 520px;">
-
-            <!-- Imagem -->
-            <div id="mainImageWrap" class="flex items-center justify-center w-full" style="height: 520px;">
+        <div class="bg-black rounded-2xl overflow-hidden relative" style="height:520px;">
+            <div class="flex items-center justify-center w-full h-full">
                 <img id="mainImage" src="" alt=""
                     style="max-width:100%; max-height:100%; width:auto; height:auto; display:block; cursor:zoom-in; opacity:1; transition:opacity 0.2s;"
                     onclick="openZoom()"
                     onerror="this.style.opacity='0'">
             </div>
-
-            <!-- Botão anterior -->
-            <button id="btnPrev"
-                onclick="navigate(-1)"
+            <button id="btnPrev" onclick="navigate(-1)"
                 class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition disabled:opacity-20 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                </svg>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             </button>
-
-            <!-- Botão próximo -->
-            <button id="btnNext"
-                onclick="navigate(1)"
+            <button id="btnNext" onclick="navigate(1)"
                 class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition disabled:opacity-20 disabled:cursor-not-allowed">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
-
-            <!-- Indicador de posição -->
             <div id="dotIndicators" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5"></div>
-
-            <!-- Botão zoom -->
             <button onclick="openZoom()"
-                class="absolute top-3 right-3 w-8 h-8 rounded-lg bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition"
-                title="Ampliar">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
-                </svg>
+                class="absolute top-3 right-3 w-8 h-8 rounded-lg bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition" title="Ampliar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
             </button>
-
-            <!-- Nome do arquivo -->
             <div class="absolute top-3 left-3">
                 <span id="imageFilename" class="text-[11px] text-white/60 bg-black/40 px-2 py-1 rounded font-mono"></span>
             </div>
         </div>
-
-        <!-- Miniaturas -->
         <div class="bg-white rounded-2xl border border-gray-200 p-3">
-            <div id="thumbsContainer" class="flex gap-2 overflow-x-auto pb-1"
-                style="scrollbar-width: thin;">
-            </div>
+            <div id="thumbsContainer" class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:thin;"></div>
         </div>
-
     </div>
+
+    <!-- ══════════════════════════════════════════
+         MODO COMPARAÇÃO — Side by side
+    ══════════════════════════════════════════ -->
+    <div id="compareContainer" class="hidden space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+
+            <!-- Painel Esquerdo -->
+            <div class="space-y-2">
+                <div class="bg-white rounded-xl border border-gray-200 px-4 py-2 flex items-center gap-3">
+                    <span class="text-[10px] font-bold text-orbis uppercase tracking-wider flex-none">Sessão A</span>
+                    <select id="selectLeft" onchange="loadPanel('left', this.value)"
+                        class="flex-1 text-xs font-bold text-gray-700 border-none outline-none bg-transparent cursor-pointer"></select>
+                    <span id="counterLeft" class="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex-none"></span>
+                </div>
+                <div class="bg-black rounded-2xl overflow-hidden relative" style="height:460px;">
+                    <div class="flex items-center justify-center w-full h-full">
+                        <img id="imgLeft" src="" alt=""
+                            style="max-width:100%; max-height:100%; width:auto; height:auto; display:block; cursor:zoom-in; opacity:1; transition:opacity 0.2s;"
+                            onclick="openZoomPanel('left')"
+                            onerror="this.style.opacity='0'">
+                    </div>
+                    <button onclick="navigatePanel('left',-1)"
+                        class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <button onclick="navigatePanel('left',1)"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <div class="absolute top-2 left-2">
+                        <span id="filenameLeft" class="text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded font-mono"></span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 p-2">
+                    <div id="thumbsLeft" class="flex gap-1.5 overflow-x-auto pb-1" style="scrollbar-width:thin;"></div>
+                </div>
+            </div>
+
+            <!-- Painel Direito -->
+            <div class="space-y-2">
+                <div class="bg-white rounded-xl border border-gray-200 px-4 py-2 flex items-center gap-3">
+                    <span class="text-[10px] font-bold text-orbislight uppercase tracking-wider flex-none">Sessão B</span>
+                    <select id="selectRight" onchange="loadPanel('right', this.value)"
+                        class="flex-1 text-xs font-bold text-gray-700 border-none outline-none bg-transparent cursor-pointer"></select>
+                    <span id="counterRight" class="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex-none"></span>
+                </div>
+                <div class="bg-black rounded-2xl overflow-hidden relative" style="height:460px;">
+                    <div class="flex items-center justify-center w-full h-full">
+                        <img id="imgRight" src="" alt=""
+                            style="max-width:100%; max-height:100%; width:auto; height:auto; display:block; cursor:zoom-in; opacity:1; transition:opacity 0.2s;"
+                            onclick="openZoomPanel('right')"
+                            onerror="this.style.opacity='0'">
+                    </div>
+                    <button onclick="navigatePanel('right',-1)"
+                        class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <button onclick="navigatePanel('right',1)"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <div class="absolute top-2 left-2">
+                        <span id="filenameRight" class="text-[10px] text-white/60 bg-black/40 px-2 py-0.5 rounded font-mono"></span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 p-2">
+                    <div id="thumbsRight" class="flex gap-1.5 overflow-x-auto pb-1" style="scrollbar-width:thin;"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </div>
 
 <!-- Modal: Zoom -->
-<div id="zoomModal"
-    class="fixed inset-0 bg-black/95 hidden z-50 flex items-center justify-center p-4"
-    onclick="closeZoom()">
+<div id="zoomModal" class="fixed inset-0 bg-black/95 hidden z-50 flex items-center justify-center p-4" onclick="closeZoom()">
     <button class="absolute top-4 right-4 text-white/60 hover:text-white text-2xl" onclick="closeZoom()">✖</button>
     <div class="absolute top-4 left-1/2 -translate-x-1/2 flex gap-3">
-        <button onclick="zoomIn(); event.stopPropagation()"
-            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">+ Ampliar</button>
-        <button onclick="zoomOut(); event.stopPropagation()"
-            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">− Reduzir</button>
-        <button onclick="zoomReset(); event.stopPropagation()"
-            class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">↺ Original</button>
+        <button onclick="zoomIn(); event.stopPropagation()" class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">+ Ampliar</button>
+        <button onclick="zoomOut(); event.stopPropagation()" class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">− Reduzir</button>
+        <button onclick="zoomReset(); event.stopPropagation()" class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition">↺ Original</button>
     </div>
-    <div style="overflow: auto; max-width: 95vw; max-height: 90vh;">
-        <img id="zoomImage" src="" alt=""
-            style="cursor: move; transition: transform 0.2s; transform-origin: center;"
-            onclick="event.stopPropagation()">
+    <div style="overflow:auto; max-width:95vw; max-height:90vh;">
+        <img id="zoomImage" src="" alt="" style="cursor:move; transition:transform 0.2s; transform-origin:center;" onclick="event.stopPropagation()">
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const params      = new URLSearchParams(window.location.search);
-    const SESSION_ID  = params.get('session_id');     // id numérico da ExamSession
-    const ACCESSION   = params.get('accession');      // accession_number (alternativo)
+    const params     = new URLSearchParams(window.location.search);
+    const SESSION_ID = params.get('session_id');
+    const ACCESSION  = params.get('accession');
 
-    let images  = [];
-    let current = 0;
-    let zoomLevel = 1;
+    let images      = [];
+    let current     = 0;
+    let zoomLevel   = 1;
+    let compareMode = false;
+    let patientId   = null;
+    let allSessions = [];
+
+    const panels = {
+        left:  { images: [], current: 0 },
+        right: { images: [], current: 0 },
+    };
 
     // ── Estado da UI ──────────────────────────────────────────────
     function setState(state, msg = '') {
-        ['stateLoading','stateError','viewerContainer','sessionHeader'].forEach(id => {
+        ['stateLoading','stateError','viewerContainer','compareContainer','sessionHeader'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
+            if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
         });
         if (state === 'loading') {
             document.getElementById('stateLoading').classList.remove('hidden');
         } else if (state === 'error') {
             const el = document.getElementById('stateError');
-            el.classList.remove('hidden');
-            el.classList.add('flex');
+            el.classList.remove('hidden'); el.classList.add('flex');
             document.getElementById('stateErrorMsg').innerText = msg;
         } else if (state === 'loaded') {
             document.getElementById('sessionHeader').classList.remove('hidden');
             document.getElementById('viewerContainer').classList.remove('hidden');
+        } else if (state === 'compare') {
+            document.getElementById('sessionHeader').classList.remove('hidden');
+            document.getElementById('compareContainer').classList.remove('hidden');
         }
     }
 
-    // ── Carrega dados da sessão ───────────────────────────────────
+    // ── Carrega sessão inicial ────────────────────────────────────
     async function loadSession() {
-        if (!SESSION_ID && !ACCESSION) {
-            setState('error', 'Nenhuma sessão informada na URL.');
-            return;
-        }
+        if (!SESSION_ID && !ACCESSION) { setState('error', 'Nenhuma sessão informada na URL.'); return; }
         setState('loading');
-
         try {
-            // Busca pelo accession_number (único e indexado) — mais confiável que id interno
             const searchTerm = ACCESSION || SESSION_ID;
             const r = await authFetch(`/api/search?q=${encodeURIComponent(searchTerm)}`);
             if (!r.ok) { setState('error', 'Erro ao buscar sessão.'); return; }
 
             const { data } = await r.json();
-
-            // Filtra pelo id exato ou pelo accession exato
             const session = (data || []).find(s => {
                 if (s.is_pacs) return false;
-                if (ACCESSION)  return s.accession_number === ACCESSION;
+                if (ACCESSION) return s.accession_number === ACCESSION;
                 return String(s.id) === String(SESSION_ID);
             });
 
             if (!session) { setState('error', 'Sessão não encontrada.'); return; }
 
-            // Filtra apenas imagens — usa file_type ou extensão do filename como fallback
+            patientId = session.patient_id;
             images = (session.files || []).filter(f =>
-                f.type === 'IMAGEM' ||
-                (f.name && /\.(jpg|jpeg|png)$/i.test(f.name))
+                f.type === 'IMAGEM' || (f.name && /\.(jpg|jpeg|png)$/i.test(f.name))
             );
-
             if (images.length === 0) { setState('error', 'Nenhuma imagem encontrada nesta sessão.'); return; }
 
-            // Cabeçalho
             const procColor = session.procedure === 'DERMATOLOGIA'
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-orange-50 text-orange-700 border-orange-200';
 
-            document.getElementById('headerPatient').innerText     = session.patient_name;
-            document.getElementById('headerProcedure').innerText   = session.procedure || '';
-            document.getElementById('headerProcedure').className  += ` ${procColor}`;
-            document.getElementById('headerDate').innerText        = session.exam_date || '-';
-            document.getElementById('headerAccession').innerText   = `# ${session.accession_number}`;
+            document.getElementById('headerPatient').innerText    = session.patient_name;
+            document.getElementById('headerProcedure').innerText  = session.procedure || '';
+            document.getElementById('headerProcedure').className += ` ${procColor}`;
+            document.getElementById('headerDate').innerText       = session.exam_date || '-';
+            document.getElementById('headerAccession').innerText  = `# ${session.accession_number}`;
 
-            buildThumbs();
-            buildDots();
+            buildThumbs(); buildDots();
             setState('loaded');
             showImage(0);
+
+            // Carrega sessões do paciente em background para habilitar comparação
+            loadPatientSessions();
 
         } catch(e) {
             console.error(e);
@@ -207,41 +259,172 @@
         }
     }
 
-    // ── Miniaturas ────────────────────────────────────────────────
-    function buildThumbs() {
-        const container = document.getElementById('thumbsContainer');
+    // ── Sessões do paciente (para comparação) ─────────────────────
+    async function loadPatientSessions() {
+        try {
+            const r = await authFetch(`/api/timeline/${encodeURIComponent(patientId)}`);
+            if (!r.ok) return;
+            const data = await r.json();
+            allSessions = (data.timeline || []).filter(s => s.images && s.images.length > 0);
+
+            if (allSessions.length > 1) {
+                const btn = document.getElementById('btnCompare');
+                btn.classList.remove('hidden');
+                btn.classList.add('flex');
+            }
+        } catch(e) { /* comparação é opcional */ }
+    }
+
+    // ── Alterna modo comparação ───────────────────────────────────
+    function toggleCompare() {
+        compareMode = !compareMode;
+        const btn   = document.getElementById('btnCompare');
+        const label = document.getElementById('btnCompareLabel');
+
+        if (compareMode) {
+            btn.classList.replace('bg-orbis','bg-yellow-500');
+            btn.classList.replace('hover:bg-orbislight','hover:bg-yellow-600');
+            label.innerText = 'Sair da comparação';
+            buildSessionSelects();
+            setState('compare');
+        } else {
+            btn.classList.replace('bg-yellow-500','bg-orbis');
+            btn.classList.replace('hover:bg-yellow-600','hover:bg-orbislight');
+            label.innerText = 'Comparar';
+            setState('loaded');
+        }
+    }
+
+    // ── Selects de sessão ─────────────────────────────────────────
+    function buildSessionSelects() {
+        ['selectLeft','selectRight'].forEach((selId, panelIdx) => {
+            const sel = document.getElementById(selId);
+            sel.innerHTML = '';
+            allSessions.forEach((s, i) => {
+                const opt   = document.createElement('option');
+                opt.value   = i;
+                opt.text    = `${s.exam_date_fmt} · ${s.accession_number} (${s.images.length} img)`;
+                sel.appendChild(opt);
+            });
+            // Painel A = primeira sessão, Painel B = última sessão
+            const defaultIdx = panelIdx === 0 ? 0 : Math.max(0, allSessions.length - 1);
+            sel.value = defaultIdx;
+            loadPanel(panelIdx === 0 ? 'left' : 'right', defaultIdx);
+        });
+    }
+
+    // ── Carrega imagens em um painel ──────────────────────────────
+    async function loadPanel(side, sessionIdx) {
+        const session = allSessions[parseInt(sessionIdx)];
+        if (!session) return;
+
+        try {
+            const r = await authFetch(`/api/search?q=${encodeURIComponent(session.accession_number)}`);
+            const { data } = r.ok ? await r.json() : { data: [] };
+            const found = (data || []).find(s => !s.is_pacs && s.accession_number === session.accession_number);
+
+            panels[side].images = found
+                ? (found.files || []).filter(f =>
+                    f.type === 'IMAGEM' || (f.name && /\.(jpg|jpeg|png)$/i.test(f.name))
+                  )
+                : session.images.map(img => ({ id: img.file_id, name: img.filename, type: 'IMAGEM' }));
+
+        } catch(e) {
+            panels[side].images = session.images.map(img => ({ id: img.file_id, name: img.filename, type: 'IMAGEM' }));
+        }
+
+        panels[side].current = 0;
+        buildPanelThumbs(side);
+        showPanelImage(side, 0);
+    }
+
+    // ── Miniaturas de painel ──────────────────────────────────────
+    function buildPanelThumbs(side) {
+        const container = document.getElementById(side === 'left' ? 'thumbsLeft' : 'thumbsRight');
         container.innerHTML = '';
-        images.forEach((img, idx) => {
-            const btn = document.createElement('button');
-            btn.id = `thumb-${idx}`;
-            btn.onclick = () => showImage(idx);
-            btn.className = 'flex-none rounded-xl overflow-hidden border-2 transition-all duration-150';
-            btn.style.cssText = 'width:72px; height:72px; border-color: transparent;';
-            btn.innerHTML = `
-                <img src="/view/${img.id}" alt="${img.name || ''}"
-                    class="w-full h-full object-cover"
-                    loading="lazy"
-                    onerror="this.style.display='none';">`;
+        panels[side].images.forEach((img, idx) => {
+            const btn         = document.createElement('button');
+            btn.id            = `thumb-${side}-${idx}`;
+            btn.onclick       = () => showPanelImage(side, idx);
+            btn.className     = 'flex-none rounded-lg overflow-hidden border-2 transition-all duration-150';
+            btn.style.cssText = 'width:60px; height:60px; border-color:transparent;';
+            btn.innerHTML     = `<img src="/view/${img.id}" alt="${img.name || ''}"
+                class="w-full h-full object-cover" loading="lazy"
+                onerror="this.style.display='none';">`;
             container.appendChild(btn);
         });
     }
 
-    // ── Indicadores de ponto ──────────────────────────────────────
+    function showPanelImage(side, idx) {
+        const p = panels[side];
+        if (idx < 0 || idx >= p.images.length) return;
+        p.current = idx;
+
+        const img    = p.images[idx];
+        const imgEl  = document.getElementById(side === 'left' ? 'imgLeft' : 'imgRight');
+        const ctrEl  = document.getElementById(side === 'left' ? 'counterLeft' : 'counterRight');
+        const nameEl = document.getElementById(side === 'left' ? 'filenameLeft' : 'filenameRight');
+
+        imgEl.style.opacity = '0.3';
+        imgEl.src    = `/view/${img.id}`;
+        imgEl.alt    = img.name || '';
+        imgEl.onload = () => { imgEl.style.opacity = '1'; };
+
+        ctrEl.innerText  = `${idx + 1} / ${p.images.length}`;
+        nameEl.innerText = img.name || '';
+
+        p.images.forEach((_, i) => {
+            const t = document.getElementById(`thumb-${side}-${i}`);
+            if (!t) return;
+            t.style.borderColor = i === idx ? '#1A4FA0' : 'transparent';
+            t.style.transform   = i === idx ? 'scale(1.08)' : 'scale(1)';
+        });
+        const active = document.getElementById(`thumb-${side}-${idx}`);
+        if (active) active.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+    }
+
+    function navigatePanel(side, dir) { showPanelImage(side, panels[side].current + dir); }
+
+    function openZoomPanel(side) {
+        const img = panels[side].images[panels[side].current];
+        if (!img) return;
+        zoomLevel = 1;
+        document.getElementById('zoomImage').src = `/view/${img.id}`;
+        document.getElementById('zoomImage').style.transform = 'scale(1)';
+        document.getElementById('zoomModal').classList.remove('hidden');
+    }
+
+    // ── Modo normal ───────────────────────────────────────────────
+    function buildThumbs() {
+        const container = document.getElementById('thumbsContainer');
+        container.innerHTML = '';
+        images.forEach((img, idx) => {
+            const btn         = document.createElement('button');
+            btn.id            = `thumb-${idx}`;
+            btn.onclick       = () => showImage(idx);
+            btn.className     = 'flex-none rounded-xl overflow-hidden border-2 transition-all duration-150';
+            btn.style.cssText = 'width:72px; height:72px; border-color:transparent;';
+            btn.innerHTML     = `<img src="/view/${img.id}" alt="${img.name || ''}"
+                class="w-full h-full object-cover" loading="lazy"
+                onerror="this.style.display='none';">`;
+            container.appendChild(btn);
+        });
+    }
+
     function buildDots() {
         const wrap = document.getElementById('dotIndicators');
         wrap.innerHTML = '';
         if (images.length <= 1) return;
         images.forEach((_, idx) => {
-            const d = document.createElement('button');
-            d.id = `dot-${idx}`;
-            d.onclick = () => showImage(idx);
-            d.className = 'w-2 h-2 rounded-full transition-all duration-150';
+            const d         = document.createElement('button');
+            d.id            = `dot-${idx}`;
+            d.onclick       = () => showImage(idx);
+            d.className     = 'w-2 h-2 rounded-full transition-all duration-150';
             d.style.background = 'rgba(255,255,255,0.4)';
             wrap.appendChild(d);
         });
     }
 
-    // ── Exibe imagem pelo índice ──────────────────────────────────
     function showImage(idx) {
         if (idx < 0 || idx >= images.length) return;
         current = idx;
@@ -250,28 +433,22 @@
         const mainEl = document.getElementById('mainImage');
 
         mainEl.style.opacity = '0.3';
-        mainEl.src = `/view/${img.id}`;
-        mainEl.alt = img.name || '';
+        mainEl.src    = `/view/${img.id}`;
+        mainEl.alt    = img.name || '';
         mainEl.onload = () => { mainEl.style.opacity = '1'; };
 
-        document.getElementById('imageFilename').innerText  = img.name || '';
-        document.getElementById('headerCounter').innerText  = `${idx + 1} / ${images.length}`;
+        document.getElementById('imageFilename').innerText = img.name || '';
+        document.getElementById('headerCounter').innerText = `${idx + 1} / ${images.length}`;
 
-        // Miniaturas — destaque na selecionada
         images.forEach((_, i) => {
             const t = document.getElementById(`thumb-${i}`);
             if (!t) return;
             t.style.borderColor = i === idx ? '#1A4FA0' : 'transparent';
             t.style.transform   = i === idx ? 'scale(1.05)' : 'scale(1)';
         });
-
-        // Scroll da miniatura ativa para o centro
         const activeThumb = document.getElementById(`thumb-${idx}`);
-        if (activeThumb) {
-            activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
+        if (activeThumb) activeThumb.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
 
-        // Dots
         images.forEach((_, i) => {
             const d = document.getElementById(`dot-${i}`);
             if (!d) return;
@@ -279,38 +456,19 @@
             d.style.width      = i === idx ? '20px' : '8px';
         });
 
-        // Botões prev/next
         document.getElementById('btnPrev').disabled = idx === 0;
         document.getElementById('btnNext').disabled = idx === images.length - 1;
     }
 
-    // ── Navegação ─────────────────────────────────────────────────
-    function navigate(dir) {
-        showImage(current + dir);
-    }
-
-    // ── Teclado ───────────────────────────────────────────────────
-    document.addEventListener('keydown', e => {
-        if (document.getElementById('zoomModal').classList.contains('hidden')) {
-            if (e.key === 'ArrowLeft')  navigate(-1);
-            if (e.key === 'ArrowRight') navigate(1);
-            if (e.key === 'Escape')     history.back();
-        } else {
-            if (e.key === 'Escape') closeZoom();
-            if (e.key === '+')      zoomIn();
-            if (e.key === '-')      zoomOut();
-            if (e.key === '0')      zoomReset();
-        }
-    });
+    function navigate(dir) { showImage(current + dir); }
 
     // ── Zoom ──────────────────────────────────────────────────────
     function openZoom() {
         const img = images[current];
         if (!img) return;
         zoomLevel = 1;
-        const zImg = document.getElementById('zoomImage');
-        zImg.src = `/view/${img.id}`;
-        zImg.style.transform = 'scale(1)';
+        document.getElementById('zoomImage').src = `/view/${img.id}`;
+        document.getElementById('zoomImage').style.transform = 'scale(1)';
         document.getElementById('zoomModal').classList.remove('hidden');
     }
 
@@ -323,10 +481,23 @@
     function zoomIn()    { zoomLevel = Math.min(zoomLevel + 0.5, 5);   applyZoom(); }
     function zoomOut()   { zoomLevel = Math.max(zoomLevel - 0.5, 0.5); applyZoom(); }
     function zoomReset() { zoomLevel = 1; applyZoom(); }
+    function applyZoom() { document.getElementById('zoomImage').style.transform = `scale(${zoomLevel})`; }
 
-    function applyZoom() {
-        document.getElementById('zoomImage').style.transform = `scale(${zoomLevel})`;
-    }
+    // ── Teclado ───────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (!document.getElementById('zoomModal').classList.contains('hidden')) {
+            if (e.key === 'Escape') closeZoom();
+            if (e.key === '+')      zoomIn();
+            if (e.key === '-')      zoomOut();
+            if (e.key === '0')      zoomReset();
+            return;
+        }
+        if (!compareMode) {
+            if (e.key === 'ArrowLeft')  navigate(-1);
+            if (e.key === 'ArrowRight') navigate(1);
+            if (e.key === 'Escape')     history.back();
+        }
+    });
 
     loadSession();
 </script>
