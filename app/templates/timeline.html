@@ -133,25 +133,25 @@
         }
     }
 
+    // FIX: removido ?token= das URLs — autenticação agora via httponly cookie
     function renderTimeline(items) {
         const container = document.getElementById('timelineItems');
         container.innerHTML = '';
 
         items.forEach((session, idx) => {
-            const isLast = idx === items.length - 1;
             const procedureBadge = session.procedure === 'DERMATOLOGIA'
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-orange-50 text-orange-700 border-orange-200';
 
             const imagesHtml = session.images.map(img => `
                 <button
-                    onclick="openImgModal('/view/${img.file_id}?token=${token}')"
+                    onclick="openImgModal('/view/${img.file_id}')"
                     class="group relative rounded-xl overflow-hidden border-2 border-white shadow-md hover:shadow-xl hover:scale-105 transition-all duration-200 bg-gray-100"
                     style="width:140px;height:140px;flex:0 0 auto;"
                     title="${img.filename || 'Imagem'}"
                 >
                     <img
-                        src="/view/${img.file_id}?token=${token}"
+                        src="/view/${img.file_id}"
                         alt="${img.filename || 'Imagem'}"
                         class="w-full h-full object-cover"
                         loading="lazy"

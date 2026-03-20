@@ -7,6 +7,8 @@ Correções:
   3. Imports via app.core
   4. Mantidos endpoints extras do projeto real:
      GET/PUT /api/patients/{id}, PUT /api/sessions/{id}, DELETE /api/files/{id}
+  5. FIX: /view/{id} agora aceita httponly cookie além do query param ?token=
+     (token via localStorage foi removido na migração para cookie — bug de visualização)
 """
 import os
 import aiofiles
@@ -14,7 +16,7 @@ import httpx
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 from jose import jwt, JWTError
 from sqlalchemy import func
@@ -24,7 +26,7 @@ from app.core.config import get_settings
 from app.core.database import get_db, STORAGE_DIR
 from app.core.models import ExamFile, ExamSession, Patient, User
 from app.core.security import SECRET_KEY, ALGORITHM, get_current_user, log_audit
-from app.core.worker import extract_text_from_pdf_task
+# import do worker movido para dentro do upload (lazy) — evita bloqueio se Redis estiver fora
 
 router = APIRouter(tags=["Exams"])
 settings = get_settings()
@@ -195,7 +197,13 @@ async def upload_exam(
         saved.append(new_file.id)
 
         if ext == ".pdf":
-            extract_text_from_pdf_task.delay(str(fpath), new_file.id)
+            try:
+                from app.core.worker import extract_text_from_pdf_task
+                extract_text_from_pdf_task.delay(str(fpath), new_file.id)
+            except Exception as celery_err:
+                # Redis indisponível não bloqueia o upload — extração de texto é opcional
+                import logging
+                logging.warning(f"[CELERY] Task não enfileirada (Redis indisponível?): {celery_err}")
 
         log_audit(db, current_user.username, "UPLOAD", f"{pname} #{acc} [{file_type}]", f.filename)
 
@@ -266,34 +274,35 @@ async def search_exams(
         for s in results
     ]
 
-    # Busca complementar no Orthanc PACS
-    if type in ("", "TODOS", "IMAGEM (PACS)"):
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                payload: dict = {"Level": "Study", "Expand": True, "Query": {}}
-                if q:
-                    payload["Query"]["PatientName"] = f"*{q.upper()}*" if not q.isdigit() else None
-                    if q.isdigit():
-                        payload["Query"]["PatientID"] = f"*{q}*"
-                resp = await client.post(
-                    f"{settings.ORTHANC_URL}/tools/find",
-                    json=payload,
-                    auth=(settings.ORTHANC_USER, settings.ORTHANC_PASS),
-                )
-                if resp.status_code == 200:
-                    for st in resp.json():
-                        data.append({
-                            "id": st.get("ID"),
-                            "patient_name": st.get("PatientMainDicomTags", {})
-                                             .get("PatientName", "").replace("^", " "),
-                            "patient_id": st.get("PatientMainDicomTags", {}).get("PatientID", ""),
-                            "accession_number": st.get("MainDicomTags", {}).get("AccessionNumber", ""),
-                            "procedure": "IMAGEM DICOM",
-                            "is_pacs": True,
-                            "files": [],
-                        })
-        except httpx.RequestError:
-            pass  # Orthanc indisponível não quebra a busca local
+    # Busca complementar no Orthanc PACS — desabilitada temporariamente
+    # Para reativar: descomentar o bloco abaixo e restaurar a opção IMAGEM (PACS) em home.html
+    # if type in ("", "TODOS", "IMAGEM (PACS)"):
+    #     try:
+    #         async with httpx.AsyncClient(timeout=3.0) as client:
+    #             payload: dict = {"Level": "Study", "Expand": True, "Query": {}}
+    #             if q:
+    #                 payload["Query"]["PatientName"] = f"*{q.upper()}*" if not q.isdigit() else None
+    #                 if q.isdigit():
+    #                     payload["Query"]["PatientID"] = f"*{q}*"
+    #             resp = await client.post(
+    #                 f"{settings.ORTHANC_URL}/tools/find",
+    #                 json=payload,
+    #                 auth=(settings.ORTHANC_USER, settings.ORTHANC_PASS),
+    #             )
+    #             if resp.status_code == 200:
+    #                 for st in resp.json():
+    #                     data.append({
+    #                         "id": st.get("ID"),
+    #                         "patient_name": st.get("PatientMainDicomTags", {})
+    #                                          .get("PatientName", "").replace("^", " "),
+    #                         "patient_id": st.get("PatientMainDicomTags", {}).get("PatientID", ""),
+    #                         "accession_number": st.get("MainDicomTags", {}).get("AccessionNumber", ""),
+    #                         "procedure": "IMAGEM DICOM",
+    #                         "is_pacs": True,
+    #                         "files": [],
+    #                     })
+    #     except httpx.RequestError:
+    #         pass  # Orthanc indisponível não quebra a busca local
 
     return {"data": data, "total": total, "page": page, "pages": (total + limit - 1) // limit}
 
@@ -344,11 +353,17 @@ async def delete_file(
 @router.get("/view/{file_id}")
 async def view_file(
     file_id: int,
-    token: str,
+    request: Request,
+    token: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    # FIX: prioriza httponly cookie; aceita ?token= como fallback (compatibilidade)
+    resolved_token = request.cookies.get("orbisclin_session") or token
+    if not resolved_token:
+        raise HTTPException(401, "Não autenticado.")
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(resolved_token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
     except JWTError:
         raise HTTPException(401, "Token inválido.")

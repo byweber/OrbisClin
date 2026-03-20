@@ -12,13 +12,10 @@
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
                 </svg>
-                <input
-                    type="text"
-                    id="searchInput"
+                <input type="text" id="searchInput"
                     placeholder="Buscar por paciente, ID, acesso ou texto extraído do PDF..."
                     class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orbislight focus:border-orbislight transition"
-                    oninput="debounceSearch()"
-                >
+                    oninput="debounceSearch()">
             </div>
             <select id="filterType" onchange="runSearch()" class="py-2.5 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orbislight min-w-[200px]">
                 <option value="">TODOS OS TIPOS</option>
@@ -28,7 +25,9 @@
                 <option value="HOLTER">HOLTER</option>
                 <option value="DERMATOLOGIA">DERMATOLOGIA</option>
                 <option value="AVALIAÇÃO DE FERIDAS">AVALIAÇÃO DE FERIDAS</option>
+                <!-- PACS desabilitado temporariamente
                 <option value="IMAGEM (PACS)">IMAGEM (PACS)</option>
+                -->
             </select>
             <button onclick="runSearch()" class="bg-orbis hover:bg-orbislight text-white font-bold py-2.5 px-6 rounded-lg transition shadow text-sm">
                 BUSCAR
@@ -77,7 +76,9 @@
     </div>
 </div>
 
-<!-- Modal: Visualizar Arquivos -->
+<!-- ═══════════════════════════════════════════════════════════
+     Modal: Visualizar Arquivos
+════════════════════════════════════════════════════════════ -->
 <div id="filesModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <div class="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center flex-none">
@@ -88,78 +89,219 @@
     </div>
 </div>
 
-<!-- Modal: Novo Exame -->
+<!-- ═══════════════════════════════════════════════════════════
+     Modal: Novo Exame
+════════════════════════════════════════════════════════════ -->
 <div id="uploadModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-down">
-        <div class="bg-orbis p-4 flex justify-between items-center">
-            <h3 class="text-white font-bold text-lg">Novo Exame</h3>
-            <button onclick="closeUploadModal()" class="text-white/80 hover:text-white transition">✖</button>
-        </div>
-        <form id="uploadForm" onsubmit="handleUpload(event)" class="p-6 space-y-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in-down flex flex-col" style="max-height:95vh">
 
-            <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                    <label class="lbl">Tipo de Procedimento</label>
-                    <select id="upProcedure" required class="inp" onchange="onProcedureChange()">
-                        <option value="" disabled selected>Selecione...</option>
-                        <option value="AUDIOMETRIA">AUDIOMETRIA</option>
-                        <option value="ECG">ECG</option>
-                        <option value="EEG">EEG</option>
-                        <option value="HOLTER">HOLTER</option>
-                        <option value="DERMATOLOGIA">DERMATOLOGIA</option>
-                        <option value="AVALIAÇÃO DE FERIDAS">AVALIAÇÃO DE FERIDAS</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="lbl">Número de Acesso</label>
-                    <input type="text" id="upAccession" required class="inp" placeholder="Ex: 20250001">
-                </div>
-                <div>
-                    <label class="lbl">Data do Exame</label>
-                    <input type="date" id="upDate" class="inp" max="">
-                </div>
-                <div>
-                    <label class="lbl">ID do Paciente</label>
-                    <input type="text" id="upPatientId" required class="inp" placeholder="CPF ou prontuário">
-                </div>
-                <div>
-                    <label class="lbl">Nome do Paciente</label>
-                    <input type="text" id="upPatientName" required class="inp uppercase" placeholder="Nome completo">
-                </div>
-            </div>
-
+        <!-- Header do modal -->
+        <div class="bg-orbis px-6 py-4 flex justify-between items-center flex-none">
             <div>
-                <label class="lbl" id="upFileLabel">Arquivo (PDF)</label>
-                <input type="file" id="upFile" required class="inp py-1.5" accept=".pdf">
-                <p id="upFileHint" class="text-xs text-gray-400 mt-1">Apenas PDF para este tipo de procedimento.</p>
+                <h3 class="text-white font-bold text-lg leading-tight">Novo Exame</h3>
+                <p class="text-blue-200 text-xs mt-0.5">Campos com <span class="text-yellow-300 font-bold">*</span> são obrigatórios</p>
             </div>
+            <button onclick="closeUploadModal()" class="text-white/70 hover:text-white transition text-xl leading-none">✖</button>
+        </div>
 
-            <div id="uploadProgress" class="hidden">
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div id="uploadBar" class="bg-orbis h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+        <form id="uploadForm" onsubmit="handleUpload(event)" class="overflow-y-auto flex-1">
+            <div class="p-6 space-y-6">
+
+                <!-- ─── SEÇÃO 1: PACIENTE ──────────────────────────── -->
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-5 h-5 rounded-full bg-orbis text-white text-[10px] font-bold flex items-center justify-center flex-none">1</span>
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Dados do Paciente</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-x-3 gap-y-3">
+
+                        <!-- ID -->
+                        <div class="col-span-4">
+                            <label class="lbl">ID do Paciente <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" id="upPatientId" required class="inp pr-8"
+                                    placeholder="CPF ou prontuário"
+                                    oninput="debouncePatientLookup()">
+                                <span id="patientLookupIcon" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs hidden"></span>
+                            </div>
+                        </div>
+
+                        <!-- Nome -->
+                        <div class="col-span-5">
+                            <label class="lbl">Nome do Paciente <span class="text-red-500">*</span></label>
+                            <input type="text" id="upPatientName" required class="inp uppercase"
+                                placeholder="Nome completo">
+                        </div>
+
+                        <!-- Sexo -->
+                        <div class="col-span-3">
+                            <label class="lbl">Sexo</label>
+                            <select id="upSex" class="inp">
+                                <option value="">—</option>
+                                <option value="M">Masculino</option>
+                                <option value="F">Feminino</option>
+                                <option value="O">Outro</option>
+                            </select>
+                        </div>
+
+                        <!-- Nascimento -->
+                        <div class="col-span-4">
+                            <label class="lbl">Data de Nascimento</label>
+                            <input type="date" id="upBirthDate" class="inp">
+                        </div>
+
+                        <!-- Banner de status do paciente -->
+                        <div class="col-span-8 flex items-end pb-0.5">
+                            <div id="patientFoundBanner" class="hidden w-full px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 font-bold flex items-center gap-2">
+                                <span>✅</span><span id="patientFoundMsg"></span>
+                            </div>
+                            <div id="patientNewBanner" class="hidden w-full px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600 font-bold flex items-center gap-2">
+                                <span>🆕</span><span>Paciente novo — será cadastrado automaticamente.</span>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
-                <p id="uploadStatus" class="text-xs text-gray-500 mt-1 text-center">Enviando...</p>
-            </div>
 
-            <div class="flex gap-3 pt-2">
-                <button type="button" onclick="closeUploadModal()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                <!-- ─── SEÇÃO 2: EXAME ─────────────────────────────── -->
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-5 h-5 rounded-full bg-orbis text-white text-[10px] font-bold flex items-center justify-center flex-none">2</span>
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Dados do Exame</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-x-3 gap-y-3">
+
+                        <!-- Nº de Acesso -->
+                        <div class="col-span-4">
+                            <label class="lbl">Nº de Acesso (Pedido) <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" id="upAccession" required class="inp font-mono pr-8"
+                                    placeholder="Ex: 20250001"
+                                    oninput="debounceAccessionLookup()">
+                                <span id="accessionLookupIcon" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs hidden"></span>
+                            </div>
+                        </div>
+
+                        <!-- Tipo de Procedimento -->
+                        <div class="col-span-5">
+                            <label class="lbl">Tipo de Procedimento <span class="text-red-500">*</span></label>
+                            <select id="upProcedure" required class="inp" onchange="onProcedureChange()">
+                                <option value="" disabled selected>Selecione...</option>
+                                <option value="AUDIOMETRIA">AUDIOMETRIA</option>
+                                <option value="ECG">ECG</option>
+                                <option value="EEG">EEG</option>
+                                <option value="HOLTER">HOLTER</option>
+                                <option value="DERMATOLOGIA">DERMATOLOGIA</option>
+                                <option value="AVALIAÇÃO DE FERIDAS">AVALIAÇÃO DE FERIDAS</option>
+                            </select>
+                        </div>
+
+                        <!-- Data do Exame -->
+                        <div class="col-span-3">
+                            <label class="lbl">Data do Exame</label>
+                            <input type="date" id="upDate" class="inp">
+                        </div>
+
+                        <!-- Banner de sessão existente — ocupa linha inteira -->
+                        <div class="col-span-12">
+                            <div id="accessionFoundBanner" class="hidden px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div class="flex items-start gap-2">
+                                    <span class="text-base leading-none mt-0.5">📋</span>
+                                    <div class="flex-1">
+                                        <p class="text-xs font-bold text-blue-700 mb-1.5" id="accessionFoundMsg"></p>
+                                        <div id="accessionFilesList" class="flex flex-wrap gap-2"></div>
+                                        <p class="text-[10px] text-blue-500 mt-1.5">O novo arquivo será adicionado a esta sessão.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Solicitante -->
+                        <div class="col-span-6">
+                            <label class="lbl">Médico Solicitante</label>
+                            <input type="text" id="upReqPhys" class="inp uppercase"
+                                placeholder="Nome do solicitante">
+                        </div>
+
+                        <!-- Executante -->
+                        <div class="col-span-6">
+                            <label class="lbl">Médico Executante</label>
+                            <input type="text" id="upPerfPhys" class="inp uppercase"
+                                placeholder="Nome do executante">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ─── SEÇÃO 3: ARQUIVO ───────────────────────────── -->
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-5 h-5 rounded-full bg-orbis text-white text-[10px] font-bold flex items-center justify-center flex-none">3</span>
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Arquivo</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-x-3 gap-y-3">
+
+                        <!-- Tipo de Arquivo -->
+                        <div class="col-span-3">
+                            <label class="lbl">Tipo de Arquivo <span class="text-red-500">*</span></label>
+                            <select id="upFileType" required class="inp">
+                                <option value="LAUDO">LAUDO</option>
+                                <option value="EXAME">EXAME</option>
+                                <option value="IMAGEM">IMAGEM</option>
+                                <option value="ANEXO">ANEXO</option>
+                            </select>
+                        </div>
+
+                        <!-- Seletor de arquivo -->
+                        <div class="col-span-9">
+                            <label class="lbl" id="upFileLabel">Selecionar Arquivo <span class="text-red-500">*</span></label>
+                            <input type="file" id="upFile" required class="inp py-1.5" accept=".pdf">
+                            <p id="upFileHint" class="text-xs text-gray-400 mt-1">Apenas PDF para este tipo de procedimento.</p>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Barra de progresso -->
+                <div id="uploadProgress" class="hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="uploadBar" class="bg-orbis h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+                    </div>
+                    <p id="uploadStatus" class="text-xs text-gray-500 mt-1 text-center">Enviando...</p>
+                </div>
+
+            </div><!-- /p-6 -->
+
+            <!-- Botões — footer fixo -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3 flex-none">
+                <button type="button" onclick="closeUploadModal()"
+                    class="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">
                     CANCELAR
                 </button>
-                <button type="submit" id="upBtn" class="flex-1 py-2.5 bg-orbis hover:bg-orbislight text-white rounded-lg text-sm font-bold shadow transition">
+                <button type="submit" id="upBtn"
+                    class="flex-1 py-2.5 bg-orbis hover:bg-orbislight text-white rounded-lg text-sm font-bold shadow transition">
                     ENVIAR EXAME
                 </button>
             </div>
         </form>
+
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Bloqueia datas futuras no modal de upload
-    document.getElementById('upDate').max = new Date().toISOString().split('T')[0];
+    // Bloqueia datas futuras
+    document.getElementById('upDate').max      = new Date().toISOString().split('T')[0];
+    document.getElementById('upBirthDate').max = new Date().toISOString().split('T')[0];
 
-    // ── Debounce de busca ─────────────────────────────────────────
+    // ── Debounce busca de exames ──────────────────────────────────
     let _searchTimer = null;
     function debounceSearch() {
         clearTimeout(_searchTimer);
@@ -183,12 +325,10 @@
 
             const { data } = await r.json();
             count.innerText = `${data.length} resultado(s)`;
-            body.innerHTML = '';
+            body.innerHTML  = '';
 
             if (data.length === 0) {
-                body.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">
-                    Nenhum exame encontrado.
-                </td></tr>`;
+                body.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">Nenhum exame encontrado.</td></tr>`;
                 return;
             }
 
@@ -222,23 +362,214 @@
         }
     }
 
+    // ── Busca automática de número de acesso ─────────────────────
+    let _accessionTimer = null;
+    function debounceAccessionLookup() {
+        clearTimeout(_accessionTimer);
+        _accessionTimer = setTimeout(lookupAccession, 500);
+    }
+
+    async function lookupAccession() {
+        const acc    = document.getElementById('upAccession').value.trim();
+        const icon   = document.getElementById('accessionLookupIcon');
+        const banner = document.getElementById('accessionFoundBanner');
+
+        if (acc.length < 3) {
+            banner.classList.add('hidden');
+            icon.classList.add('hidden');
+            return;
+        }
+
+        icon.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+        icon.classList.remove('hidden');
+
+        try {
+            const r = await authFetch(`/api/search?q=${encodeURIComponent(acc)}`);
+            const d = await r.json();
+
+            // Filtra resultado exato pelo accession_number
+            const found = (d.data || []).find(s => !s.is_pacs && s.accession_number === acc);
+
+            if (found) {
+                // Preenche dados do paciente automaticamente
+                document.getElementById('upPatientId').value   = found.patient_id   || '';
+                document.getElementById('upPatientName').value = found.patient_name || '';
+                document.getElementById('upBirthDate').value   = found.birth_date_raw || '';
+                document.getElementById('upSex').value         = found.sex          || '';
+                if (found.procedure) {
+                    const sel = document.getElementById('upProcedure');
+                    sel.value = found.procedure;
+                    onProcedureChange();
+                }
+
+                // Trava campos do paciente (sessão já existe)
+                _lockPatientFields();
+                document.getElementById('upBirthDate').readOnly = true;
+                document.getElementById('upBirthDate').classList.add('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+                document.getElementById('upSex').disabled = true;
+                document.getElementById('upSex').classList.add('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+
+                // Esconde lookup de paciente (já preenchido)
+                document.getElementById('patientFoundBanner').classList.add('hidden');
+                document.getElementById('patientNewBanner').classList.add('hidden');
+                document.getElementById('patientLookupIcon').classList.add('hidden');
+
+                // Monta lista de arquivos já existentes
+                document.getElementById('accessionFoundMsg').innerText =
+                    `Sessão existente — ${found.patient_name} · ${found.procedure || ''} · ${found.exam_date || 'sem data'}`;
+
+                const filesList = document.getElementById('accessionFilesList');
+                filesList.innerHTML = '';
+                if (found.files && found.files.length > 0) {
+                    found.files.forEach(f => {
+                        const icon = f.type === 'IMAGEM' ? '🖼️' : '📄';
+                        filesList.innerHTML += `
+                            <a href="/view/${f.id}" target="_blank"
+                               class="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition">
+                                <span>${icon}</span>
+                                <span>${f.type}</span>
+                                <span class="text-blue-400 font-normal">${f.date}</span>
+                            </a>`;
+                    });
+                } else {
+                    filesList.innerHTML = '<span class="text-[11px] text-blue-400">Nenhum arquivo ainda.</span>';
+                }
+
+                banner.classList.remove('hidden');
+                icon.innerHTML = '📋';
+            } else {
+                banner.classList.add('hidden');
+                icon.innerHTML = '🆕';
+            }
+        } catch(e) {
+            icon.classList.add('hidden');
+        }
+    }
+
+    // ── Busca automática de paciente por ID ───────────────────────
+    let _patientTimer = null;
+    function debouncePatientLookup() {
+        clearTimeout(_patientTimer);
+        _patientTimer = setTimeout(lookupPatient, 500);
+    }
+
+    async function lookupPatient() {
+        const pid         = document.getElementById('upPatientId').value.trim();
+        const icon        = document.getElementById('patientLookupIcon');
+        const foundBanner = document.getElementById('patientFoundBanner');
+        const newBanner   = document.getElementById('patientNewBanner');
+
+        if (pid.length < 3) {
+            foundBanner.classList.add('hidden');
+            newBanner.classList.add('hidden');
+            icon.classList.add('hidden');
+            _unlockPatientFields();
+            return;
+        }
+
+        icon.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+        icon.classList.remove('hidden');
+
+        try {
+            const r = await authFetch(`/api/patients/${encodeURIComponent(pid)}`);
+            const d = await r.json();
+
+            if (d.found) {
+                // Sempre preenche o nome e trava (campo obrigatório e confiável)
+                document.getElementById('upPatientName').value = d.name || '';
+                _lockPatientFields();
+
+                // Preenche nascimento e sexo apenas se existirem no banco
+                // Se estiverem vazios, deixa os campos desbloqueados para preenchimento manual
+                if (d.birth_date) {
+                    document.getElementById('upBirthDate').value = d.birth_date;
+                    document.getElementById('upBirthDate').readOnly = true;
+                    document.getElementById('upBirthDate').classList.add('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+                }
+                if (d.sex) {
+                    document.getElementById('upSex').value = d.sex;
+                    document.getElementById('upSex').disabled = true;
+                    document.getElementById('upSex').classList.add('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+                }
+
+                const incompleto = !d.birth_date || !d.sex;
+                const msg = incompleto
+                    ? `Paciente encontrado: ${d.name} — preencha os campos em branco para completar o cadastro.`
+                    : `Paciente encontrado: ${d.name} · Nasc. ${_fmtDate(d.birth_date)}`;
+
+                document.getElementById('patientFoundMsg').innerText = msg;
+                foundBanner.classList.remove('hidden');
+
+                // Muda cor do banner se houver dados faltando
+                if (incompleto) {
+                    foundBanner.classList.remove('bg-green-50', 'border-green-200', 'text-green-700');
+                    foundBanner.classList.add('bg-yellow-50', 'border-yellow-200', 'text-yellow-700');
+                    foundBanner.querySelector('span').innerText = '⚠️';
+                } else {
+                    foundBanner.classList.remove('bg-yellow-50', 'border-yellow-200', 'text-yellow-700');
+                    foundBanner.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+                    foundBanner.querySelector('span').innerText = '✅';
+                }
+
+                newBanner.classList.add('hidden');
+                icon.innerHTML = '✅';
+            } else {
+                _unlockPatientFields();
+                foundBanner.classList.add('hidden');
+                newBanner.classList.remove('hidden');
+                icon.innerHTML = '🆕';
+            }
+        } catch (e) {
+            icon.classList.add('hidden');
+        }
+    }
+
+    function _lockPatientFields() {
+        const nm = document.getElementById('upPatientName');
+        nm.readOnly = true;
+        nm.classList.add('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+    }
+
+    function _unlockPatientFields() {
+        const nm = document.getElementById('upPatientName');
+        nm.readOnly = false;
+        nm.classList.remove('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+
+        const bd = document.getElementById('upBirthDate');
+        bd.readOnly = false;
+        bd.classList.remove('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+
+        const sx = document.getElementById('upSex');
+        sx.disabled = false;
+        sx.classList.remove('bg-gray-50', 'text-gray-500', 'cursor-not-allowed');
+
+        // Reseta cor do banner para verde (estado padrão)
+        const fb = document.getElementById('patientFoundBanner');
+        fb.classList.remove('bg-yellow-50', 'border-yellow-200', 'text-yellow-700');
+        fb.classList.add('bg-green-50', 'border-green-200', 'text-green-700');
+    }
+
+    function _fmtDate(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
     // ── Modal de arquivos ─────────────────────────────────────────
     function openFilesModal(session) {
         document.getElementById('filesModalTitle').innerText = `Arquivos — ${session.patient_name}`;
         const body = document.getElementById('filesModalBody');
         body.innerHTML = '';
-
         session.files.forEach(f => {
             const isPdf = f.type !== 'IMAGEM';
             body.innerHTML += `
-                <a href="/view/${f.id}?token=${token}" target="_blank"
+                <a href="/view/${f.id}" target="_blank"
                    class="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer group">
                     <div class="text-4xl">${isPdf ? '📄' : '🖼️'}</div>
                     <span class="text-xs font-bold text-gray-600 group-hover:text-orbislight text-center">${f.type}</span>
                     <span class="text-[10px] text-gray-400">ID: ${f.id}</span>
                 </a>`;
         });
-
         document.getElementById('filesModal').classList.remove('hidden');
     }
 
@@ -246,53 +577,72 @@
     function openUploadModal() {
         document.getElementById('uploadForm').reset();
         document.getElementById('uploadProgress').classList.add('hidden');
-        document.getElementById('upDate').max = new Date().toISOString().split('T')[0];
+        document.getElementById('upDate').max      = new Date().toISOString().split('T')[0];
+        document.getElementById('upBirthDate').max = new Date().toISOString().split('T')[0];
+
+        document.getElementById('patientFoundBanner').classList.add('hidden');
+        document.getElementById('patientNewBanner').classList.add('hidden');
+        document.getElementById('patientLookupIcon').classList.add('hidden');
+        document.getElementById('accessionFoundBanner').classList.add('hidden');
+        document.getElementById('accessionLookupIcon').classList.add('hidden');
+        _unlockPatientFields();
+
+        document.getElementById('upFile').accept   = '.pdf';
+        document.getElementById('upFile').multiple = false;
+        const hint = document.getElementById('upFileHint');
+        hint.className = 'text-xs mt-1 text-gray-400';
+        hint.innerHTML = '📄 Apenas PDF para este tipo de procedimento.';
+
         document.getElementById('uploadModal').classList.remove('hidden');
     }
+
     function closeUploadModal() {
         document.getElementById('uploadModal').classList.add('hidden');
     }
 
     function onProcedureChange() {
-        const proc = document.getElementById('upProcedure').value;
+        const proc      = document.getElementById('upProcedure').value;
         const multiFile = ['DERMATOLOGIA', 'AVALIAÇÃO DE FERIDAS'].includes(proc);
-        const input = document.getElementById('upFile');
-        const hint  = document.getElementById('upFileHint');
-        const label = document.getElementById('upFileLabel');
+        const input     = document.getElementById('upFile');
+        const hint      = document.getElementById('upFileHint');
 
         if (multiFile) {
-            input.accept = '.pdf,image/jpeg,image/png';
+            input.accept   = '.pdf,image/jpeg,image/png';
             input.multiple = true;
-            label.innerText = 'Arquivos (PDF, JPG, PNG — múltiplos permitidos)';
-            hint.innerText = 'Selecione uma ou mais imagens/PDFs.';
+            hint.className = 'text-xs mt-1 text-green-700 font-bold';
+            hint.innerHTML = '✅ PDF, JPG ou PNG — múltiplos arquivos permitidos.';
         } else {
-            input.accept = '.pdf';
+            input.accept   = '.pdf';
             input.multiple = false;
-            label.innerText = 'Arquivo (PDF)';
-            hint.innerText = 'Apenas PDF para este tipo de procedimento.';
+            hint.className = 'text-xs mt-1 text-gray-400';
+            hint.innerHTML = '📄 Apenas PDF para este tipo de procedimento.';
         }
     }
 
     async function handleUpload(e) {
         e.preventDefault();
-        const btn = document.getElementById('upBtn');
-        const bar = document.getElementById('uploadBar');
-        const status = document.getElementById('uploadStatus');
+        const btn      = document.getElementById('upBtn');
+        const bar      = document.getElementById('uploadBar');
+        const status   = document.getElementById('uploadStatus');
         const progress = document.getElementById('uploadProgress');
 
-        btn.disabled = true;
+        btn.disabled  = true;
         btn.innerText = 'Enviando...';
         progress.classList.remove('hidden');
-        bar.style.width = '30%';
+        bar.style.width  = '30%';
         status.innerText = 'Enviando arquivo(s)...';
 
         const fd = new FormData();
-        fd.append('accession_number', document.getElementById('upAccession').value.trim());
-        fd.append('patient_id',       document.getElementById('upPatientId').value.trim());
-        fd.append('patient_name',     document.getElementById('upPatientName').value.trim());
-        fd.append('procedure_type',   document.getElementById('upProcedure').value);
-        fd.append('exam_date',        document.getElementById('upDate').value);
-        fd.append('file_type',        'LAUDO');
+        fd.append('accession_number',     document.getElementById('upAccession').value.trim());
+        fd.append('patient_id',           document.getElementById('upPatientId').value.trim());
+        fd.append('patient_name',         document.getElementById('upPatientName').value.trim());
+        fd.append('procedure_type',       document.getElementById('upProcedure').value);
+        fd.append('exam_date',            document.getElementById('upDate').value);
+        fd.append('birth_date',           document.getElementById('upBirthDate').value);
+        fd.append('sex',                  document.getElementById('upSex').value);
+        fd.append('requesting_physician', document.getElementById('upReqPhys').value.trim());
+        fd.append('performing_physician', document.getElementById('upPerfPhys').value.trim());
+        fd.append('file_type',            document.getElementById('upFileType').value);
 
         const files = document.getElementById('upFile').files;
         for (const f of files) fd.append('file', f);
@@ -303,7 +653,7 @@
             const d = await r.json();
 
             if (r.ok) {
-                bar.style.width = '100%';
+                bar.style.width  = '100%';
                 status.innerText = 'Upload concluído!';
                 setTimeout(() => {
                     closeUploadModal();
@@ -311,8 +661,7 @@
                     runSearch();
                 }, 600);
             } else {
-                const msg = d.detail || d.message || 'Erro no upload.';
-                showToast(msg, 'error');
+                showToast(d.detail?.message || d.detail || d.message || 'Erro no upload.', 'error');
                 progress.classList.add('hidden');
             }
         } catch (err) {
@@ -320,7 +669,7 @@
             showToast('Erro de conexão.', 'error');
             progress.classList.add('hidden');
         } finally {
-            btn.disabled = false;
+            btn.disabled  = false;
             btn.innerText = 'ENVIAR EXAME';
         }
     }
