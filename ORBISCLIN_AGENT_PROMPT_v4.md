@@ -68,7 +68,7 @@ OrbisClin/                        ← raiz do repositório
 │       ├── audit.html            # Trilha de auditoria com filtros e export CSV
 │       ├── reports.html          # Relatórios filtráveis com export CSV e PDF
 │       ├── timeline.html         # Timeline evolutiva de imagens dermatológicas
-│       └── viewer.html           # Slideshow de imagens por sessão de exame
+│       └── viewer.html           # Slideshow + comparação lado a lado por sessão de exame
 └── tests/
     ├── __init__.py
     ├── conftest.py               # Re-exporta fixtures do conftest.py da raiz
@@ -194,13 +194,14 @@ Upload de PDF
 - Campos `exam_date` e `birth_date` sempre retornam formatados ao frontend; `exam_date_raw` e `birth_date_raw` disponíveis quando o frontend precisa do ISO (ex: inputs `type="date"`)
 - Inputs `type="date"` do HTML usam YYYY-MM-DD internamente — não alterar, é padrão obrigatório do HTML
 
-**Viewer de Slideshow (`/viewer`):**
+**Viewer de Slideshow + Comparação (`/viewer`):**
 - Acessado via `/viewer?accession=XXXXX` — usa `accession_number` como chave (único e indexado)
 - Carrega arquivos da sessão via `/api/search?q={accession}`
 - Filtra imagens por `file_type === 'IMAGEM'` OU extensão `jpg/jpeg/png` no filename
 - Container da imagem: `height: 520px` fixo no `<div>`, `<img>` com `max-width:100%; max-height:100%; width:auto; height:auto`
 - Transição via `onload` — nunca via `setTimeout` (imagem aparece só após carregar)
 - `onerror` de imagens: sempre `this.style.display='none'` ou `this.style.opacity='0'` — nunca `this.parentElement.innerHTML` (causa `Cannot set properties of null`)
+- **Modo comparação:** botão "Comparar" aparece automaticamente se o paciente tiver mais de uma sessão com imagens (detectado via `/api/timeline/{patient_id}` em background); divide a tela em dois painéis independentes com select de sessão, miniaturas e navegação próprios; Painel A = sessão mais antiga, Painel B = mais recente por padrão; zoom compartilhado
 
 ---
 
@@ -310,11 +311,15 @@ APP_VERSION=8.0
 | 39 | Imagem do viewer ficava invisível (tela preta) apesar de retornar 200 | Container com `height:520px` fixo; `<img>` com `max-width/max-height:100%`; transição via `onload` em vez de `setTimeout` |
 | 40 | Filtro de imagens no viewer usava extensão do filename — falhava com nomes gerados | Filtro trocado para `file_type === 'IMAGEM'` com extensão como fallback |
 
+| 41 | Modo comparação lado a lado no viewer | Botão "Comparar" no header do viewer; dois painéis independentes com select de sessão, miniaturas e navegação; sessões carregadas via `/api/timeline`; sem mudança no backend |
+
 ---
 
 ## 10. PENDÊNCIAS CONHECIDAS / ROADMAP
 
-- **Alembic:** sem migrations — mudanças no `models.py` requerem `reset_system.py` ou recriação manual ← **prioridade alta**
+- ✅ **Comparação lado a lado no viewer:** implementada — dois painéis independentes com select de sessão
+- **Anotações clínicas por imagem** ← **próximo** — campo `notes` em `ExamFile`; requer Alembic
+- **Alembic:** sem migrations — mudanças no `models.py` requerem `reset_system.py` ou recriação manual ← **pré-requisito para anotações**
 - **Integração Orthanc PACS:** desabilitada — reativar após definir estratégia de uso
 - **Conversão DICOM:** converter PDFs e imagens para DICOM antes de enviar ao Orthanc (pydicom + Pillow) — depende de Alembic (nova coluna `orthanc_instance_id` em `ExamFile`)
 - **Timeline híbrida:** após conversão DICOM, viewer local com fallback para Orthanc se arquivo local não existir
@@ -347,4 +352,4 @@ APP_VERSION=8.0
 ---
 
 *OrbisClin v8.0 — Sistema genérico de gestão de imagens clínicas — github.com/byweber/OrbisClin*
-*Última atualização: slideshow funcional com zoom, miniaturas e navegação por teclado; boot corrigido para todas as roles; datas em formato BR; bugs de onerror e CSS do viewer resolvidos*
+*Última atualização: comparação lado a lado implementada no viewer; slideshow com zoom e miniaturas; boot corrigido para todas as roles; datas BR; próximo: anotações clínicas por imagem + Alembic*

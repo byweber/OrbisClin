@@ -312,7 +312,8 @@ async def search_exams(
             "is_pacs": False,
             "files": [
                 {"id": f.id, "type": f.file_type, "name": f.filename,
-                 "date": f.uploaded_at.strftime("%d/%m %H:%M")}
+                 "date": f.uploaded_at.strftime("%d/%m %H:%M"),
+                 "notes": f.notes or ""}
                 for f in s.files
             ],
         }
@@ -375,6 +376,28 @@ async def update_session(
 
 
 # ── Arquivos ──────────────────────────────────────────────────────────────────
+
+# ── Anotações clínicas ───────────────────────────────────────────────────────
+
+@router.put("/api/files/{file_id}/notes")
+async def update_file_notes(
+    file_id: int,
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Salva ou atualiza anotação clínica de um arquivo de imagem."""
+    if current_user.role == "VIEWER":
+        raise HTTPException(403, detail={"message": "Acesso negado."})
+    f = db.query(ExamFile).filter(ExamFile.id == file_id).first()
+    if not f:
+        raise HTTPException(404, detail={"message": "Arquivo não encontrado."})
+    f.notes = notes.strip() or None
+    db.commit()
+    log_audit(db, current_user.username, "FILE_NOTES", f.filename,
+              f"ID:{file_id} — {len(notes)} chars")
+    return JSONResponse({"status": "success", "notes": f.notes or ""})
+
 
 @router.delete("/api/files/{file_id}")
 async def delete_file(

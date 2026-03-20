@@ -1,12 +1,12 @@
 """
 app/core/models.py — Modelos SQLAlchemy.
 
-Correções em relação à versão anterior:
-  - Tabelas renomeadas: 'sessions' → 'exam_sessions', 'files' → 'exam_files'
-    (consistência com as queries e routers)
-  - Adicionado campo extracted_text em ExamFile (necessário para o worker Celery)
-  - Índice composto em ExamFile para buscas frequentes por session_id + file_type
-  - Imports via pacote app.core (não imports relativos planos)
+Histórico de alterações:
+  v1 — Tabelas renomeadas: 'sessions' → 'exam_sessions', 'files' → 'exam_files'
+  v2 — Campo extracted_text em ExamFile (worker Celery)
+  v3 — Campo notes em ExamFile (anotações clínicas por imagem)
+       → Migration: alembic revision --autogenerate -m "add_notes_to_exam_files"
+       → Aplicar:   alembic upgrade head
 """
 from datetime import datetime
 
@@ -41,7 +41,7 @@ class Patient(Base):
 
 
 class ExamSession(Base):
-    __tablename__ = "exam_sessions"  # era 'sessions'
+    __tablename__ = "exam_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
     accession_number = Column(String, unique=True, index=True)
@@ -57,7 +57,7 @@ class ExamSession(Base):
 
 
 class ExamFile(Base):
-    __tablename__ = "exam_files"  # era 'files'
+    __tablename__ = "exam_files"
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("exam_sessions.id"), index=True)
@@ -65,6 +65,7 @@ class ExamFile(Base):
     file_path = Column(String)
     filename = Column(String)
     extracted_text = Column(Text, nullable=True)  # preenchido pelo worker Celery
+    notes = Column(Text, nullable=True)            # anotações clínicas por imagem (v3)
     uploaded_at = Column(DateTime, default=datetime.now, index=True)
 
     session = relationship("ExamSession", back_populates="files")
