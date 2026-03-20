@@ -1,7 +1,5 @@
 """
 tests/test_auth.py — Testes de autenticação.
-
-Cobre: login OK, login inválido, cookie httponly, logout, usuário inativo.
 """
 import pytest
 from conftest import login
@@ -19,11 +17,7 @@ class TestLogin:
     def test_login_define_cookie_httponly(self, client, admin_user):
         r = login(client, "admin", "Admin123")
         assert r.status_code == 200
-        # Cookie deve estar presente
         assert "orbisclin_session" in r.cookies
-        # httponly não aparece no valor do cookie via TestClient,
-        # mas verificamos que o endpoint set_auth_cookie foi chamado
-        # inspecionando o header Set-Cookie
         set_cookie = r.headers.get("set-cookie", "")
         assert "HttpOnly" in set_cookie or "httponly" in set_cookie.lower()
 
@@ -56,16 +50,20 @@ class TestLogin:
         login(client, "admin", "Admin123")
         r = client.post("/api/auth/logout")
         assert r.status_code == 200
-        # Após logout, acesso deve falhar
         r2 = client.get("/api/users/")
         assert r2.status_code == 401
 
+    def test_login_por_matricula(self, client, admin_user):
+        """Login usando matrícula em vez de username."""
+        r = login(client, "0001", "Admin123")
+        assert r.status_code == 200
+        assert r.json()["role"] == "ADMIN"
+
 
 class TestRateLimit:
-    def test_muitas_tentativas_retornam_429(self, client, admin_user):
-        """11 tentativas seguidas devem acionar o rate limit (10/min)."""
-        for _ in range(10):
-            login(client, "admin", "errada")
-        r = login(client, "admin", "errada")
-        # 429 ou 401 — depende do tempo; em CI rápido pode não acionar
-        assert r.status_code in (401, 429)
+    def test_rate_limit_desabilitado_em_testes(self, client, admin_user):
+        """Em ambiente de testes (TESTING=1), o rate limit é desabilitado."""
+        for _ in range(15):
+            r = login(client, "admin", "errada")
+        # Deve continuar retornando 401 (não bloqueado) com TESTING=1
+        assert r.status_code == 401

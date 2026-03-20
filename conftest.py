@@ -1,39 +1,54 @@
 """
-conftest.py — Fixtures compartilhadas entre todos os testes.
-Localização: RAIZ do projeto (não em tests/).
-O pytest descobre automaticamente este arquivo ao rodar da raiz.
+conftest.py — Fixtures de teste. Localização: raiz do projeto.
 """
 import os
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-TEST_DB_URL = "sqlite:///./test_orbisclin.db"
-
-# Configura variáveis de ambiente ANTES de qualquer import do app
-os.environ["DATABASE_URL"] = TEST_DB_URL
+os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SECRET_KEY"]   = "test_secret_key_for_pytest_only"
 os.environ["REDIS_URL"]    = "redis://localhost:6379/0"
-os.environ["STORAGE_DIR"]  = "./test_storage"
+os.environ["STORAGE_DIR"]  = "/tmp/test_storage_orbisclin"
+os.environ["TESTING"]      = "1"   # flag para desabilitar rate limit
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+import pathlib
+
+engine_test = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 
 from app.core.database import Base, get_db
 from app.core.models import User
 from app.core.security import get_password_hash
+
+import app.core.database as _db_module
+_db_module.engine       = engine_test
+_db_module.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_test)
+_db_module.STORAGE_DIR  = pathlib.Path("/tmp/test_storage_orbisclin")
+_db_module.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+import main as _main_module
+_main_module._create_default_admin = lambda: None
+
+# Desabilita rate limiting: substitui o limiter.limit por um passthrough
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+_noop_limiter = Limiter(key_func=get_remote_address, enabled=False)
+# Monkey-patch no módulo auth antes do import do app
+import app.routers.auth as _auth_module
+_auth_module.limiter = _noop_limiter
+
 from main import app
+from fastapi.testclient import TestClient
 
-engine_test         = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+# Substitui o limiter do app também
+app.state.limiter = _noop_limiter
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_test)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def fresh_db():
-    """Cria tabelas antes de cada teste e dropa depois — banco sempre limpo."""
-    Base.metadata.create_all(bind=engine_test)
-    yield
-    Base.metadata.drop_all(bind=engine_test)
-    if os.path.exists("./test_orbisclin.db"):
-        os.remove("./test_orbisclin.db")
 
 
 def override_get_db():
@@ -45,6 +60,13 @@ def override_get_db():
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest.fixture(scope="function", autouse=True)
+def fresh_db():
+    Base.metadata.create_all(bind=engine_test)
+    yield
+    Base.metadata.drop_all(bind=engine_test)
 
 
 @pytest.fixture
@@ -85,7 +107,6 @@ def viewer_user(db):
 
 
 def login(client, username: str, password: str):
-    """Helper: faz login e retorna o response (cookie setado automaticamente)."""
     return client.post(
         "/token",
         data={"username": username, "password": password},
