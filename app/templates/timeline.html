@@ -155,7 +155,7 @@
                         alt="${img.filename || 'Imagem'}"
                         class="w-full h-full object-cover"
                         loading="lazy"
-                        onerror="this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-3xl bg-gray-100\'>🖼️</div>'"
+                        onerror="this.style.display='none';"
                     >
                     <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
                         <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">

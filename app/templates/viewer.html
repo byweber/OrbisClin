@@ -49,12 +49,11 @@
         <div class="bg-black rounded-2xl overflow-hidden relative" style="min-height: 520px;">
 
             <!-- Imagem -->
-            <div id="mainImageWrap" class="flex items-center justify-center w-full" style="min-height: 520px;">
+            <div id="mainImageWrap" class="flex items-center justify-center w-full" style="height: 520px;">
                 <img id="mainImage" src="" alt=""
-                    class="max-w-full object-contain transition-opacity duration-200"
-                    style="max-height: 520px; cursor: zoom-in;"
+                    style="max-width:100%; max-height:100%; width:auto; height:auto; display:block; cursor:zoom-in; opacity:1; transition:opacity 0.2s;"
                     onclick="openZoom()"
-                    onerror="this.src=''; this.parentElement.innerHTML='<div class=\'text-white/40 text-center p-8\'>Imagem indisponível</div>'">
+                    onerror="this.style.opacity='0'">
             </div>
 
             <!-- Botão anterior -->
@@ -178,9 +177,10 @@
 
             if (!session) { setState('error', 'Sessão não encontrada.'); return; }
 
-            // Filtra apenas imagens (JPG/PNG)
+            // Filtra apenas imagens — usa file_type ou extensão do filename como fallback
             images = (session.files || []).filter(f =>
-                f.name && /\.(jpg|jpeg|png)$/i.test(f.name)
+                f.type === 'IMAGEM' ||
+                (f.name && /\.(jpg|jpeg|png)$/i.test(f.name))
             );
 
             if (images.length === 0) { setState('error', 'Nenhuma imagem encontrada nesta sessão.'); return; }
@@ -249,12 +249,10 @@
         const img    = images[idx];
         const mainEl = document.getElementById('mainImage');
 
-        mainEl.style.opacity = '0';
-        setTimeout(() => {
-            mainEl.src              = `/view/${img.id}`;
-            mainEl.alt              = img.name || '';
-            mainEl.style.opacity    = '1';
-        }, 120);
+        mainEl.style.opacity = '0.3';
+        mainEl.src = `/view/${img.id}`;
+        mainEl.alt = img.name || '';
+        mainEl.onload = () => { mainEl.style.opacity = '1'; };
 
         document.getElementById('imageFilename').innerText  = img.name || '';
         document.getElementById('headerCounter').innerText  = `${idx + 1} / ${images.length}`;
